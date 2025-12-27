@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     const databaseUrl = process.env.DATABASE_URL; // ← DATABASE_URL كما طلبت
     
     if (!piApiKey || !databaseUrl) {
-        console.log("Missing PI_API_KEY or DATABASE_URL");
+        console.log("Missing API_KEY or DATABASE_URL");
         return { statusCode: 500, body: JSON.stringify({ status: 'error', message: 'Server configuration error' }) };
     }
     
