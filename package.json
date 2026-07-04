@@ -1,0 +1,9 @@
+{
+  "name": "donate-way-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Donate Way static website with Vercel Serverless Functions for Pi payments.",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
