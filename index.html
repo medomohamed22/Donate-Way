@@ -1,366 +1,2742 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Donate Way - تبرع بعملة Pi Network</title>
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f0ff 0%, #e6d9ff 100%);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            color: #4a148c;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donate Way</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
 
-        .container {
-            max-width: 1100px;
-            margin: 30px auto;
-            padding: 20px;
-        }
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-        }
+  <style>
+    :root{
+      --primary:#6d28d9;
+      --primary-2:#8b5cf6;
+      --primary-3:#a78bfa;
+      --dark:#0f172a;
+      --text:#1e293b;
+      --muted:#64748b;
+      --soft:#f8fafc;
+      --card:#ffffff;
+      --line:#e2e8f0;
+      --success:#059669;
+      --success-soft:#ecfdf5;
+      --danger:#dc2626;
+      --warning:#d97706;
+      --warning-soft:#fffbeb;
+      --info:#0284c7;
+      --info-soft:#f0f9ff;
+      --shadow-sm:0 10px 25px rgba(15,23,42,.06);
+      --shadow-md:0 20px 50px rgba(15,23,42,.10);
+      --shadow-lg:0 30px 80px rgba(15,23,42,.16);
+      --radius:26px;
+      --radius-sm:16px;
+      --gradient:linear-gradient(135deg,#5b21b6 0%,#7c3aed 48%,#c026d3 100%);
+      --gradient-2:linear-gradient(135deg,#0f172a 0%,#312e81 50%,#6d28d9 100%);
+    }
 
-        .logo {
-            font-size: 90px;
-            margin-bottom: 10px;
-            color: #7e57c2;
-            animation: float 3s ease-in-out infinite;
-        }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal',sans-serif}
+    html{scroll-behavior:smooth}
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 88% -10%,rgba(124,58,237,.22),transparent 34%),
+        radial-gradient(circle at 0% 34%,rgba(14,165,233,.12),transparent 30%),
+        linear-gradient(180deg,#fbfbff 0%,#f8fafc 44%,#f1f5f9 100%);
+      color:var(--text);
+      padding-top:96px;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      background-image:
+        linear-gradient(rgba(99,102,241,.045) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(99,102,241,.045) 1px,transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(to bottom,black,transparent 72%);
+      pointer-events:none;
+      z-index:-1;
+    }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
+    button,input{font-family:inherit}
+    button{border:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;display:block}
 
-        h1 {
-            font-size: 38px;
-            color: #6a1b9a;
-            margin: 10px 0;
-        }
+    .icon{
+      width:20px;
+      height:20px;
+      stroke:currentColor;
+      stroke-width:2;
+      fill:none;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      flex-shrink:0;
+    }
+    .icon-fill{fill:currentColor;stroke:none}
 
-        p.intro {
-            font-size: 19px;
-            color: #7b1fa2;
-            opacity: 0.9;
-            max-width: 800px;
-            margin: 0 auto 30px;
-        }
+    header{
+      position:fixed;
+      top:14px;
+      left:50%;
+      transform:translateX(-50%);
+      width:min(1180px,calc(100% - 28px));
+      height:72px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 16px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(255,255,255,.78);
+      backdrop-filter:blur(24px);
+      -webkit-backdrop-filter:blur(24px);
+      box-shadow:var(--shadow-sm);
+      border-radius:999px;
+      z-index:9999;
+    }
+    .header-right{display:flex;align-items:center;gap:12px}
+    .menu-btn{
+      width:46px;
+      height:46px;
+      border-radius:18px;
+      background:#f5f3ff;
+      color:var(--primary);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:.25s;
+    }
+    .menu-btn:hover{transform:translateY(-2px);background:#ede9fe}
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--dark);
+      font-weight:900;
+      font-size:1.45rem;
+      letter-spacing:-.5px;
+      cursor:pointer;
+    }
+    .logo-mark{
+      width:38px;
+      height:38px;
+      border-radius:16px;
+      background:var(--gradient);
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 14px 30px rgba(109,40,217,.25);
+    }
+    .auth-section{display:flex;align-items:center;gap:10px}
+    #login-button{
+      min-height:46px;
+      padding:0 24px;
+      border-radius:999px;
+      background:var(--gradient);
+      color:white;
+      font-weight:900;
+      box-shadow:0 16px 34px rgba(109,40,217,.24);
+      transition:.25s;
+    }
+    #login-button:hover{transform:translateY(-2px);box-shadow:0 22px 44px rgba(109,40,217,.30)}
+    .user-pill{
+      display:none;
+      align-items:center;
+      gap:9px;
+      background:white;
+      color:var(--primary);
+      border:1px solid #ddd6fe;
+      border-radius:999px;
+      padding:8px 14px;
+      font-weight:800;
+      box-shadow:var(--shadow-sm);
+      transition:.25s;
+    }
+    .user-pill:hover{transform:translateY(-2px);background:#faf5ff}
 
-        #user {
-            font-size: 23px;
-            font-weight: bold;
-            color: #4a148c;
-            margin: 20px 0;
-        }
+    .container{max-width:1180px;margin:0 auto;padding:0 20px}
 
-        .campaigns {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-        }
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);
+      gap:26px;
+      align-items:stretch;
+      margin:18px 0 28px;
+    }
+    .hero-copy{
+      position:relative;
+      overflow:hidden;
+      min-height:420px;
+      border-radius:38px;
+      padding:42px;
+      color:white;
+      background:
+        radial-gradient(circle at 88% 12%,rgba(255,255,255,.18),transparent 28%),
+        radial-gradient(circle at 0% 100%,rgba(14,165,233,.20),transparent 34%),
+        var(--gradient-2);
+      box-shadow:var(--shadow-lg);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+    .hero-copy::after{
+      content:"";
+      position:absolute;
+      width:280px;
+      height:280px;
+      right:-120px;
+      bottom:-120px;
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:50%;
+      box-shadow:0 0 0 46px rgba(255,255,255,.045),0 0 0 92px rgba(255,255,255,.025);
+    }
+    html[dir="rtl"] .hero-copy::after{right:auto;left:-120px}
+    .eyebrow{
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      padding:9px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.18);
+      color:#ede9fe;
+      font-weight:900;
+      margin-bottom:16px;
+      backdrop-filter:blur(12px);
+    }
+    .hero-title{
+      position:relative;
+      z-index:1;
+      font-size:clamp(2.2rem,5.4vw,4.65rem);
+      line-height:1.02;
+      letter-spacing:-1.6px;
+      font-weight:900;
+      margin-bottom:18px;
+    }
+    .hero-subtitle{
+      position:relative;
+      z-index:1;
+      max-width:680px;
+      color:#dbeafe;
+      line-height:1.85;
+      font-size:1.08rem;
+      margin-bottom:26px;
+    }
+    .hero-actions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .primary-link,.secondary-link{
+      min-height:50px;
+      padding:0 20px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      font-weight:900;
+      transition:.25s;
+    }
+    .primary-link{background:white;color:var(--primary);box-shadow:0 20px 40px rgba(0,0,0,.18)}
+    .secondary-link{background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.22)}
+    .primary-link:hover,.secondary-link:hover{transform:translateY(-2px)}
 
-        .campaign-card {
-            background: #fff;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(126, 87, 194, 0.15);
-            padding: 35px 25px;
-            text-align: center;
-            transition: all 0.4s ease;
-            border: 1px solid rgba(126, 87, 194, 0.1);
-        }
+    .hero-panel{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:16px;
+    }
+    .mini-stat{
+      position:relative;
+      overflow:hidden;
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(255,255,255,.85);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow-sm);
+      border-radius:30px;
+      padding:24px;
+      min-height:132px;
+    }
+    .mini-stat::before{
+      content:"";
+      position:absolute;
+      inset:auto -50px -70px auto;
+      width:160px;
+      height:160px;
+      background:#ede9fe;
+      border-radius:50%;
+    }
+    .mini-stat > *{position:relative}
+    .mini-icon{
+      width:48px;
+      height:48px;
+      border-radius:18px;
+      background:#f5f3ff;
+      color:var(--primary);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-bottom:14px;
+    }
+    .mini-value{font-size:1.9rem;font-weight:900;color:var(--dark)}
+    .mini-label{color:var(--muted);font-weight:800;margin-top:4px}
 
-        .campaign-card:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 20px 40px rgba(126, 87, 194, 0.25);
-        }
+    .trust-row{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:16px;
+      margin-bottom:34px;
+    }
+    .trust-card{
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(226,232,240,.86);
+      border-radius:26px;
+      padding:20px;
+      box-shadow:var(--shadow-sm);
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+      transition:.25s;
+    }
+    .trust-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md)}
+    .trust-card .feature-icon{
+      width:44px;
+      height:44px;
+      border-radius:17px;
+      background:#f5f3ff;
+      color:var(--primary);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+    }
+    .trust-card strong{display:block;color:var(--dark);font-size:1.02rem;margin-bottom:5px;font-weight:900}
+    .trust-card p{color:var(--muted);font-size:.93rem;line-height:1.65}
 
-        .icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-            color: #9c27b0;
-        }
+    .section-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:16px;
+      flex-wrap:wrap;
+      margin:26px 0 18px;
+    }
+    .section-title{font-size:2rem;font-weight:900;color:var(--dark);letter-spacing:-.5px}
+    .section-desc{color:var(--muted);font-weight:600;margin-top:5px}
 
-        .campaign-title {
-            font-size: 26px;
-            color: #6a1b9a;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
+    .filter-container{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:26px}
+    .filter-btn{
+      min-height:42px;
+      padding:0 18px;
+      border-radius:999px;
+      background:white;
+      color:var(--muted);
+      border:1px solid var(--line);
+      font-weight:900;
+      box-shadow:0 6px 18px rgba(15,23,42,.04);
+      transition:.25s;
+    }
+    .filter-btn.active,.filter-btn:hover{
+      background:var(--dark);
+      color:white;
+      border-color:var(--dark);
+      transform:translateY(-2px);
+    }
 
-        .campaign-desc {
-            font-size: 16px;
-            color: #7b1fa2;
-            line-height: 1.7;
-            margin-bottom: 25px;
-        }
+    .campaigns-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+      gap:26px;
+    }
+    .card{
+      background:rgba(255,255,255,.96);
+      border:1px solid rgba(226,232,240,.92);
+      border-radius:32px;
+      padding:16px;
+      box-shadow:var(--shadow-sm);
+      position:relative;
+      overflow:hidden;
+      transition:.28s;
+      text-align:start;
+    }
+    .card:hover{transform:translateY(-7px);box-shadow:var(--shadow-lg)}
+    .image-wrap{
+      position:relative;
+      height:218px;
+      border-radius:26px;
+      overflow:hidden;
+      background:#eef2ff;
+      margin-bottom:18px;
+    }
+    .campaign-img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transition:.35s;
+    }
+    .card:hover .campaign-img{transform:scale(1.04)}
+    .image-overlay{
+      position:absolute;
+      inset:0;
+      background:linear-gradient(to bottom,rgba(15,23,42,.05),rgba(15,23,42,.40));
+      pointer-events:none;
+    }
+    .category-chip{
+      position:absolute;
+      top:14px;
+      left:14px;
+      z-index:2;
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      background:rgba(255,255,255,.88);
+      color:var(--primary);
+      border:1px solid rgba(255,255,255,.74);
+      backdrop-filter:blur(14px);
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:900;
+      font-size:.82rem;
+      box-shadow:0 12px 28px rgba(0,0,0,.12);
+    }
+    html[dir="rtl"] .category-chip{left:auto;right:14px}
+    .card h3{
+      color:var(--dark);
+      font-weight:900;
+      font-size:1.28rem;
+      line-height:1.45;
+      margin:0 4px 10px;
+    }
+    .campaign-meta{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin:10px 4px;
+      color:var(--muted);
+      font-weight:800;
+      font-size:.92rem;
+    }
+    .campaign-meta strong{color:var(--primary)}
+    .progress-bar{
+      width:100%;
+      height:12px;
+      background:#ede9fe;
+      border-radius:999px;
+      overflow:hidden;
+      margin:14px 0 10px;
+    }
+    .progress-fill{
+      height:100%;
+      background:linear-gradient(90deg,#6d28d9,#8b5cf6,#c026d3);
+      border-radius:999px;
+      transition:1.2s;
+    }
+    .progress-note{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      color:var(--muted);
+      font-size:.86rem;
+      font-weight:800;
+      margin-bottom:14px;
+    }
 
-        .donate-options {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin: 25px 0;
-            flex-wrap: wrap;
-        }
+    .campaign-updates{
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      border-radius:20px;
+      padding:13px;
+      margin:12px 0;
+    }
+    .updates-title{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      color:var(--dark);
+      font-weight:900;
+      font-size:.92rem;
+      margin-bottom:9px;
+    }
+    .update-item{
+      position:relative;
+      padding-inline-start:18px;
+      color:var(--muted);
+      font-size:.88rem;
+      line-height:1.55;
+      font-weight:700;
+    }
+    .update-item + .update-item{margin-top:7px}
+    .update-item::before{
+      content:"";
+      position:absolute;
+      inset-inline-start:0;
+      top:.55em;
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:var(--primary);
+      box-shadow:0 0 0 4px #ede9fe;
+    }
 
-        .amount-btn {
-            background: #ede7f6;
-            border: 2px solid #b39ddb;
-            color: #6a1b9a;
-            padding: 10px 18px;
-            font-size: 15px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 75px;
-            font-weight: 500;
-        }
+    .quick-amounts{display:flex;gap:8px;margin:14px 0 11px}
+    .quick-btn{
+      flex:1;
+      min-height:40px;
+      border-radius:15px;
+      background:#f5f3ff;
+      color:var(--primary);
+      border:1px solid #ddd6fe;
+      font-weight:900;
+      transition:.2s;
+    }
+    .quick-btn:hover{background:var(--primary);color:white;transform:translateY(-1px)}
+    .amount-input{
+      width:100%;
+      height:50px;
+      border-radius:17px;
+      border:1px solid var(--line);
+      background:#fff;
+      outline:none;
+      text-align:center;
+      color:var(--dark);
+      font-size:1rem;
+      font-weight:900;
+      transition:.25s;
+      margin-bottom:11px;
+    }
+    .amount-input:focus{border-color:var(--primary-2);box-shadow:0 0 0 4px rgba(124,58,237,.10)}
+    .btn-group{display:flex;flex-direction:column;gap:10px}
+    .donate-btn,.result-btn,.share-btn,.copy-btn{
+      min-height:48px;
+      border-radius:17px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.25s;
+    }
+    .donate-btn{
+      background:var(--gradient);
+      color:white;
+      box-shadow:0 16px 34px rgba(109,40,217,.22);
+    }
+    .donate-btn:hover{transform:translateY(-2px)}
+    .donate-btn:disabled{background:#cbd5e1;color:white;box-shadow:none;cursor:not-allowed;transform:none}
+    .result-btn{
+      background:var(--success-soft);
+      color:var(--success);
+      border:1px solid rgba(5,150,105,.20);
+    }
+    .result-btn:hover{background:var(--success);color:white}
+    .share-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:9px;
+    }
+    .share-btn{
+      background:#0f172a;
+      color:white;
+    }
+    .copy-btn{
+      background:#f8fafc;
+      color:var(--dark);
+      border:1px solid var(--line);
+    }
+    .share-btn:hover,.copy-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
 
-        .amount-btn:hover {
-            background: #b39ddb;
-            color: white;
-            transform: scale(1.1);
-        }
+    .heroes-section{
+      margin:68px 0 46px;
+      padding:34px 22px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(226,232,240,.86);
+      border-radius:36px;
+      text-align:center;
+      box-shadow:var(--shadow-md);
+      backdrop-filter:blur(18px);
+    }
+    .heroes-section h2{color:var(--dark);font-weight:900;font-size:2rem}
+    .heroes-section p{color:var(--muted);margin-top:8px;font-weight:700}
+    .heroes-list{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:18px;
+      margin-top:26px;
+    }
+    .hero-card{
+      position:relative;
+      background:white;
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:24px 18px 20px;
+      box-shadow:var(--shadow-sm);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      transition:.25s;
+    }
+    .hero-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-md)}
+    .hero-avatar{
+      width:66px;
+      height:66px;
+      border-radius:24px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--gradient);
+      color:white;
+      font-weight:900;
+      font-size:1.7rem;
+      box-shadow:0 18px 35px rgba(109,40,217,.20);
+    }
+    .rank-1 .hero-avatar{background:linear-gradient(135deg,#92400e,#f59e0b)}
+    .rank-2 .hero-avatar{background:linear-gradient(135deg,#475569,#cbd5e1)}
+    .rank-3 .hero-avatar{background:linear-gradient(135deg,#78350f,#d97706)}
+    .hero-name{font-weight:900;color:var(--dark);font-size:1.08rem}
+    .hero-amount{color:var(--primary);font-weight:900;font-size:1.14rem}
+    .rank-tag{
+      position:absolute;
+      top:-11px;
+      background:var(--dark);
+      color:white;
+      padding:5px 12px;
+      border-radius:999px;
+      font-size:.74rem;
+      font-weight:900;
+    }
+    .donor-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:900;
+      margin-top:2px;
+      border:1px solid transparent;
+    }
+    .badge-hero{background:#f5f3ff;color:var(--primary);border-color:#ddd6fe}
+    .badge-gold{background:#fffbeb;color:#b45309;border-color:#fde68a}
+    .badge-green{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+    .badge-blue{background:#f0f9ff;color:#0369a1;border-color:#bae6fd}
+    .badge-dot{
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:currentColor;
+    }
 
-        .amount-btn.selected {
-            background: #7e57c2;
-            color: white;
-            border-color: #7e57c2;
-            box-shadow: 0 5px 15px rgba(126, 87, 194, 0.4);
-        }
+    .side-drawer{
+      position:fixed;
+      top:0;
+      right:-100%;
+      width:390px;
+      max-width:92%;
+      height:100%;
+      z-index:10002;
+      background:rgba(255,255,255,.94);
+      backdrop-filter:blur(24px);
+      -webkit-backdrop-filter:blur(24px);
+      box-shadow:-20px 0 60px rgba(15,23,42,.18);
+      padding:28px;
+      overflow-y:auto;
+      transition:.45s cubic-bezier(.77,.2,.05,1);
+    }
+    html[dir="rtl"] .side-drawer{right:auto;left:-100%;box-shadow:20px 0 60px rgba(15,23,42,.18)}
+    .side-drawer.active{right:0}
+    html[dir="rtl"] .side-drawer.active{right:auto;left:0}
+    .drawer-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.50);
+      backdrop-filter:blur(4px);
+      z-index:10001;
+      display:none;
+    }
+    .drawer-title{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      color:var(--dark);
+      font-weight:900;
+      margin-bottom:16px;
+      padding-bottom:13px;
+      border-bottom:1px solid var(--line);
+    }
+    .live-indicator{
+      width:10px;
+      height:10px;
+      background:var(--success);
+      border-radius:50%;
+      box-shadow:0 0 0 6px rgba(5,150,105,.12);
+      animation:pulse 1.5s infinite;
+    }
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(5,150,105,.35)}
+      70%{box-shadow:0 0 0 9px rgba(5,150,105,0)}
+      100%{box-shadow:0 0 0 0 rgba(5,150,105,0)}
+    }
+    .stats-card{
+      background:var(--gradient-2);
+      color:white;
+      border-radius:30px;
+      padding:22px;
+      box-shadow:0 22px 46px rgba(30,41,59,.22);
+      position:relative;
+      overflow:hidden;
+      margin-bottom:16px;
+    }
+    .stats-card::after{
+      content:"";
+      position:absolute;
+      width:190px;
+      height:190px;
+      border-radius:50%;
+      right:-80px;
+      top:-70px;
+      background:rgba(255,255,255,.10);
+    }
+    html[dir="rtl"] .stats-card::after{right:auto;left:-80px}
+    .stats-main{
+      position:relative;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .stat-item{
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:20px;
+      padding:14px;
+      text-align:center;
+    }
+    .stat-value{font-size:1.45rem;font-weight:900;display:block}
+    .stat-label{font-size:.82rem;opacity:.86;font-weight:800;margin-top:3px;display:block}
+    .stats-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:14px 0 18px;
+    }
+    .drawer-metric{
+      background:white;
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:14px;
+      box-shadow:0 8px 20px rgba(15,23,42,.04);
+    }
+    .drawer-metric .metric-label{color:var(--muted);font-weight:800;font-size:.78rem}
+    .drawer-metric .metric-value{color:var(--dark);font-weight:900;font-size:1.18rem;margin-top:4px}
+    .drawer-progress{
+      background:white;
+      border:1px solid var(--line);
+      border-radius:22px;
+      padding:15px;
+      box-shadow:0 8px 20px rgba(15,23,42,.04);
+      margin-bottom:18px;
+    }
+    .drawer-progress-head{
+      display:flex;
+      justify-content:space-between;
+      color:var(--dark);
+      font-weight:900;
+      margin-bottom:10px;
+    }
+    .drawer-progress-track{
+      height:11px;
+      border-radius:999px;
+      background:#ede9fe;
+      overflow:hidden;
+    }
+    .drawer-progress-fill{
+      height:100%;
+      width:0%;
+      background:var(--gradient);
+      border-radius:999px;
+      transition:1s;
+    }
 
-        .custom-amount {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin: 25px 0;
-            flex-wrap: wrap;
-            align-items: center;
-        }
+    .modal{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:10000;
+      background:rgba(15,23,42,.70);
+      backdrop-filter:blur(9px);
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+    .modal-content{
+      background:white;
+      border:1px solid rgba(255,255,255,.80);
+      border-radius:34px;
+      padding:32px 22px 22px;
+      max-width:92%;
+      box-shadow:var(--shadow-lg);
+      position:relative;
+      text-align:center;
+    }
+    .modal-img{max-width:100%;max-height:60vh;border-radius:24px}
+    .close-modal{
+      position:absolute;
+      top:14px;
+      right:14px;
+      width:38px;
+      height:38px;
+      border-radius:50%;
+      background:#f8fafc;
+      border:1px solid var(--line);
+      color:var(--dark);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:.25s;
+      z-index:2;
+    }
+    html[dir="rtl"] .close-modal{right:auto;left:14px}
+    .close-modal:hover{background:var(--dark);color:white}
 
-        .custom-input {
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 50px;
-            border: 2px solid #b39ddb;
-            width: 180px;
-            text-align: center;
-            background: white;
-            color: #4a148c;
-        }
+    .profile-modal-content{
+      width:430px;
+      max-width:92%;
+      max-height:86vh;
+      overflow-y:auto;
+    }
+    .profile-avatar{
+      width:78px;
+      height:78px;
+      border-radius:28px;
+      background:var(--gradient);
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin:0 auto 10px;
+      font-size:2.15rem;
+      font-weight:900;
+      box-shadow:0 18px 36px rgba(109,40,217,.24);
+    }
+    .profile-stats-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:16px 0;
+    }
+    .profile-stat-box{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:14px;
+    }
+    .profile-stat-value{font-size:1.35rem;font-weight:900;color:var(--primary)}
+    .profile-stat-label{font-size:.8rem;color:var(--muted);font-weight:800;margin-top:4px}
+    .history-list{
+      max-height:190px;
+      overflow-y:auto;
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:10px;
+    }
+    .history-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:12px 10px;
+      border-bottom:1px solid var(--line);
+      font-size:.93rem;
+    }
+    .history-item:last-child{border-bottom:none}
+    .history-item-title{font-weight:900;color:var(--dark)}
+    .history-item-amount{font-weight:900;color:var(--success);background:var(--success-soft);border-radius:999px;padding:5px 10px;white-space:nowrap}
 
-        .custom-input::placeholder {
-            color: #9575cd;
-        }
+    #custom-alert{
+      position:fixed;
+      bottom:30px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:10004;
+      display:none;
+      max-width:calc(100% - 30px);
+      background:var(--dark);
+      color:white;
+      border-radius:999px;
+      padding:14px 24px;
+      font-weight:900;
+      box-shadow:0 18px 40px rgba(15,23,42,.28);
+      text-align:center;
+    }
+    .loader{
+      display:none;
+      width:42px;
+      height:42px;
+      margin:20px auto;
+      border:4px solid #ede9fe;
+      border-top-color:var(--primary);
+      border-radius:50%;
+      animation:spin .9s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .lang-ball{
+      position:fixed;
+      bottom:22px;
+      right:22px;
+      width:56px;
+      height:56px;
+      border-radius:50%;
+      z-index:10003;
+      background:white;
+      color:var(--primary);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-md);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:900;
+      transition:.2s;
+    }
+    .lang-ball:active{transform:scale(.95)}
+    html[dir="rtl"] .lang-ball{right:22px}
+    .empty-state{
+      grid-column:1/-1;
+      background:white;
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:42px 20px;
+      color:var(--muted);
+      text-align:center;
+      font-weight:900;
+      box-shadow:var(--shadow-sm);
+    }
 
-        .custom-input:focus {
-            outline: none;
-            border-color: #7e57c2;
-            box-shadow: 0 0 0 3px rgba(126, 87, 194, 0.2);
-        }
 
-        button.donate {
-            background: linear-gradient(135deg, #9c27b0, #7e57c2);
-            color: white;
-            border: none;
-            padding: 16px 40px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 10px 25px rgba(126, 87, 194, 0.3);
-            transition: all 0.4s ease;
-            width: 100%;
-            margin-top: 15px;
-        }
+    .celebration-modal{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:10006;
+      background:rgba(15,23,42,.74);
+      backdrop-filter:blur(11px);
+      -webkit-backdrop-filter:blur(11px);
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+    .celebration-card{
+      width:min(470px,100%);
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(255,255,255,.84);
+      border-radius:36px;
+      padding:34px 24px 24px;
+      text-align:center;
+      box-shadow:0 34px 100px rgba(15,23,42,.30);
+      position:relative;
+      overflow:hidden;
+      animation:celebrationPop .45s cubic-bezier(.2,.8,.2,1);
+    }
+    .celebration-card::before{
+      content:"";
+      position:absolute;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:linear-gradient(135deg,rgba(109,40,217,.16),rgba(192,38,211,.12));
+      top:-120px;
+      right:-100px;
+    }
+    html[dir="rtl"] .celebration-card::before{right:auto;left:-100px}
+    .celebration-card::after{
+      content:"";
+      position:absolute;
+      width:160px;
+      height:160px;
+      border-radius:50%;
+      background:rgba(5,150,105,.10);
+      bottom:-85px;
+      left:-70px;
+    }
+    html[dir="rtl"] .celebration-card::after{left:auto;right:-70px}
+    @keyframes celebrationPop{
+      from{transform:scale(.86) translateY(16px);opacity:0}
+      to{transform:scale(1) translateY(0);opacity:1}
+    }
+    .celebration-close-x{
+      position:absolute;
+      top:14px;
+      right:14px;
+      width:38px;
+      height:38px;
+      border-radius:50%;
+      background:#f8fafc;
+      border:1px solid var(--line);
+      color:var(--dark);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:2;
+      transition:.25s;
+    }
+    html[dir="rtl"] .celebration-close-x{right:auto;left:14px}
+    .celebration-close-x:hover{background:var(--dark);color:white}
+    .celebration-check{
+      position:relative;
+      z-index:1;
+      width:84px;
+      height:84px;
+      margin:0 auto 17px;
+      border-radius:30px;
+      background:linear-gradient(135deg,#059669,#10b981);
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 20px 42px rgba(5,150,105,.28);
+      animation:checkPulse 1.2s ease infinite;
+    }
+    @keyframes checkPulse{
+      0%,100%{box-shadow:0 20px 42px rgba(5,150,105,.28),0 0 0 0 rgba(16,185,129,.32)}
+      50%{box-shadow:0 20px 42px rgba(5,150,105,.28),0 0 0 12px rgba(16,185,129,0)}
+    }
+    .celebration-card h2{
+      position:relative;
+      z-index:1;
+      color:var(--dark);
+      font-size:1.8rem;
+      font-weight:900;
+      margin-bottom:8px;
+      letter-spacing:-.4px;
+    }
+    .celebration-card p{
+      position:relative;
+      z-index:1;
+      color:var(--muted);
+      line-height:1.75;
+      font-weight:800;
+      margin:0 auto 18px;
+      max-width:360px;
+    }
+    .celebration-summary{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:18px 0 20px;
+    }
+    .celebration-summary-item{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:13px 10px;
+    }
+    .celebration-summary-label{
+      display:block;
+      color:var(--muted);
+      font-size:.78rem;
+      font-weight:900;
+      margin-bottom:4px;
+    }
+    .celebration-summary-value{
+      display:block;
+      color:var(--dark);
+      font-size:1.05rem;
+      font-weight:900;
+      word-break:break-word;
+    }
+    .celebration-actions{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:4px;
+    }
+    .celebration-btn{
+      min-height:48px;
+      border-radius:17px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.25s;
+    }
+    .celebration-share{
+      background:var(--gradient);
+      color:white;
+      box-shadow:0 16px 32px rgba(109,40,217,.22);
+    }
+    .celebration-close{
+      background:#f8fafc;
+      color:var(--dark);
+      border:1px solid var(--line);
+    }
+    .celebration-btn:hover{transform:translateY(-2px)}
+    .confetti-piece{
+      position:fixed;
+      width:10px;
+      height:17px;
+      z-index:10007;
+      top:-24px;
+      border-radius:3px;
+      animation:confettiFall linear forwards;
+      pointer-events:none;
+    }
+    @keyframes confettiFall{
+      0%{transform:translate3d(0,-24px,0) rotate(0deg);opacity:1}
+      100%{transform:translate3d(var(--drift),110vh,0) rotate(780deg);opacity:0}
+    }
+    @media (max-width:560px){
+      .celebration-card{padding:32px 18px 20px;border-radius:30px}
+      .celebration-summary{grid-template-columns:1fr}
+      .celebration-actions{grid-template-columns:1fr}
+    }
 
-        button.donate:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(126, 87, 194, 0.4);
-        }
+    @media (max-width:900px){
+      .hero{grid-template-columns:1fr}
+      .hero-copy{min-height:auto}
+      .hero-panel{grid-template-columns:1fr 1fr}
+      .trust-row{grid-template-columns:1fr}
+    }
+    @media (max-width:560px){
+      body{padding-top:86px}
+      header{height:62px;top:10px;width:calc(100% - 18px);padding:0 10px}
+      .logo{font-size:1.15rem}
+      .logo-mark{width:32px;height:32px;border-radius:13px}
+      .menu-btn{width:42px;height:42px;border-radius:16px}
+      #login-button{min-height:42px;padding:0 16px}
+      .user-pill{padding:7px 10px;font-size:.78rem}
+      .container{padding:0 14px}
+      .hero-copy{padding:26px 20px;border-radius:28px}
+      .hero-title{font-size:2.35rem}
+      .hero-subtitle{font-size:.98rem}
+      .hero-actions a,.hero-actions button{width:100%}
+      .hero-panel{grid-template-columns:1fr}
+      .campaigns-grid{grid-template-columns:1fr}
+      .share-row{grid-template-columns:1fr}
+      .profile-stats-grid{grid-template-columns:1fr}
+      .section-title{font-size:1.55rem}
+      .side-drawer{padding:24px 18px}
+      .stats-grid{grid-template-columns:1fr}
+      .lang-ball{width:52px;height:52px;bottom:18px;right:18px}
+    }
 
-        .note {
-            text-align: center;
-            font-size: 15px;
-            margin: 60px auto 0;
-            max-width: 90%;
-            color: #6a1b9a;
-            background: rgba(255, 255, 255, 0.7);
-            padding: 20px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(126, 87, 194, 0.2);
-        }
 
-        footer {
-            text-align: center;
-            margin-top: 70px;
-            font-size: 14px;
-            color: #7b1fa2;
-            opacity: 0.8;
-        }
+    .details-btn{
+      min-height:48px;
+      border-radius:17px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.25s;
+      background:#f5f3ff;
+      color:var(--primary);
+      border:1px solid #ddd6fe;
+    }
+    .details-btn:hover{background:var(--primary);color:white;transform:translateY(-2px);box-shadow:var(--shadow-sm)}
 
-        @media (max-width: 768px) {
-            .logo { font-size: 70px; }
-            h1 { font-size: 32px; }
-            p.intro { font-size: 17px; }
-            #user { font-size: 21px; }
-            .campaign-title { font-size: 24px; }
-            .campaign-desc { font-size: 15px; }
-            .custom-input { width: 150px; }
-            button.donate { padding: 14px 30px; font-size: 17px; }
-        }
+    .campaign-detail-modal{
+      align-items:flex-start;
+      overflow-y:auto;
+      padding:28px 18px;
+    }
+    .campaign-detail-content{
+      width:min(1120px,100%);
+      max-width:1120px;
+      text-align:start;
+      padding:0;
+      overflow:hidden;
+      border-radius:36px;
+    }
+    .detail-hero{
+      position:relative;
+      min-height:360px;
+      display:flex;
+      align-items:flex-end;
+      padding:28px;
+      color:white;
+      background:var(--gradient-2);
+      overflow:hidden;
+    }
+    .detail-hero-img{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      opacity:.48;
+    }
+    .detail-hero-overlay{
+      position:absolute;
+      inset:0;
+      background:linear-gradient(to bottom,rgba(15,23,42,.15),rgba(15,23,42,.88));
+    }
+    .detail-hero-content{position:relative;z-index:1;max-width:780px}
+    .detail-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      background:rgba(255,255,255,.13);
+      border:1px solid rgba(255,255,255,.20);
+      backdrop-filter:blur(12px);
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:900;
+      color:#ede9fe;
+      margin-bottom:12px;
+    }
+    .detail-title{font-size:clamp(2rem,4.6vw,3.8rem);line-height:1.08;font-weight:900;letter-spacing:-1px;margin-bottom:12px}
+    .detail-subtitle{color:#dbeafe;line-height:1.75;font-weight:700;font-size:1.02rem}
+    .detail-body{
+      display:grid;
+      grid-template-columns:minmax(0,1.35fr) minmax(310px,.65fr);
+      gap:20px;
+      padding:22px;
+      background:#fff;
+    }
+    .detail-panel{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:26px;
+      padding:18px;
+    }
+    .detail-panel.white{background:white}
+    .detail-panel-title{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--dark);
+      font-weight:900;
+      font-size:1.06rem;
+      margin-bottom:12px;
+    }
+    .detail-description{
+      color:var(--muted);
+      line-height:1.9;
+      font-weight:700;
+      white-space:pre-line;
+    }
+    .detail-stats-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .detail-stat{
+      background:white;
+      border:1px solid var(--line);
+      border-radius:19px;
+      padding:13px;
+    }
+    .detail-stat-label{color:var(--muted);font-size:.78rem;font-weight:900}
+    .detail-stat-value{color:var(--dark);font-size:1.18rem;font-weight:900;margin-top:3px}
+    .detail-gallery{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:10px;
+    }
+    .detail-gallery img{
+      width:100%;
+      height:115px;
+      object-fit:cover;
+      border-radius:18px;
+      border:1px solid var(--line);
+      cursor:pointer;
+      transition:.25s;
+    }
+    .detail-gallery img:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+    .detail-video{
+      width:100%;
+      aspect-ratio:16/9;
+      border:0;
+      border-radius:20px;
+      background:#0f172a;
+    }
+    .detail-donors-list{display:flex;flex-direction:column;gap:9px;max-height:260px;overflow-y:auto}
+    .detail-donor-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      background:white;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:11px 12px;
+    }
+    .detail-donor-name{font-weight:900;color:var(--dark)}
+    .detail-donor-amount{font-weight:900;color:var(--success);background:var(--success-soft);border-radius:999px;padding:5px 10px;white-space:nowrap}
+    .detail-actions{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+    .detail-amount-input{
+      width:100%;
+      height:50px;
+      border-radius:17px;
+      border:1px solid var(--line);
+      text-align:center;
+      outline:none;
+      font-weight:900;
+      font-size:1rem;
+    }
+    .detail-amount-input:focus{border-color:var(--primary-2);box-shadow:0 0 0 4px rgba(124,58,237,.10)}
+    .detail-close-top{position:absolute;top:18px;right:18px;z-index:3;background:rgba(255,255,255,.90)}
+    html[dir="rtl"] .detail-close-top{right:auto;left:18px}
+    .detail-empty{color:var(--muted);font-weight:800;background:white;border:1px dashed var(--line);border-radius:18px;padding:16px;text-align:center}
 
-        @media (max-width: 480px) {
-            .container { padding: 15px; }
-            .donate-options { gap: 8px; }
-            .amount-btn { padding: 8px 14px; font-size: 14px; }
-        }
-    </style>
-    <script>
-        Pi.init({ version: "2.0" });
 
-        const campaigns = [
-            { id: "food-aid", title: "مساعدة غذائية للأسر الفقيرة", desc: "ساهم في توفير وجبات غذائية للعائلات المحتاجة في المناطق المتضررة.", icon: "🍲" },
-            { id: "education", title: "تعليم الأطفال المحرومين", desc: "دعم تعليم الأطفال في المناطق النائية من خلال توفير الكتب والأدوات المدرسية.", icon: "📚" },
-            { id: "medical", title: "علاج طبي للمرضى", desc: "مساعدة في تغطية تكاليف العلاج للمرضى غير القادرين على تحمل النفقات.", icon: "🏥" },
-            { id: "water", title: "مشاريع مياه نظيفة", desc: "حفر آبار وتوفير مياه شرب نظيفة للقرى المحرومة.", icon: "💧" }
-        ];
+    .celebration-modal{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:10006;
+      background:rgba(15,23,42,.74);
+      backdrop-filter:blur(11px);
+      -webkit-backdrop-filter:blur(11px);
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+    .celebration-card{
+      width:min(470px,100%);
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(255,255,255,.84);
+      border-radius:36px;
+      padding:34px 24px 24px;
+      text-align:center;
+      box-shadow:0 34px 100px rgba(15,23,42,.30);
+      position:relative;
+      overflow:hidden;
+      animation:celebrationPop .45s cubic-bezier(.2,.8,.2,1);
+    }
+    .celebration-card::before{
+      content:"";
+      position:absolute;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:linear-gradient(135deg,rgba(109,40,217,.16),rgba(192,38,211,.12));
+      top:-120px;
+      right:-100px;
+    }
+    html[dir="rtl"] .celebration-card::before{right:auto;left:-100px}
+    .celebration-card::after{
+      content:"";
+      position:absolute;
+      width:160px;
+      height:160px;
+      border-radius:50%;
+      background:rgba(5,150,105,.10);
+      bottom:-85px;
+      left:-70px;
+    }
+    html[dir="rtl"] .celebration-card::after{left:auto;right:-70px}
+    @keyframes celebrationPop{
+      from{transform:scale(.86) translateY(16px);opacity:0}
+      to{transform:scale(1) translateY(0);opacity:1}
+    }
+    .celebration-close-x{
+      position:absolute;
+      top:14px;
+      right:14px;
+      width:38px;
+      height:38px;
+      border-radius:50%;
+      background:#f8fafc;
+      border:1px solid var(--line);
+      color:var(--dark);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:2;
+      transition:.25s;
+    }
+    html[dir="rtl"] .celebration-close-x{right:auto;left:14px}
+    .celebration-close-x:hover{background:var(--dark);color:white}
+    .celebration-check{
+      position:relative;
+      z-index:1;
+      width:84px;
+      height:84px;
+      margin:0 auto 17px;
+      border-radius:30px;
+      background:linear-gradient(135deg,#059669,#10b981);
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 20px 42px rgba(5,150,105,.28);
+      animation:checkPulse 1.2s ease infinite;
+    }
+    @keyframes checkPulse{
+      0%,100%{box-shadow:0 20px 42px rgba(5,150,105,.28),0 0 0 0 rgba(16,185,129,.32)}
+      50%{box-shadow:0 20px 42px rgba(5,150,105,.28),0 0 0 12px rgba(16,185,129,0)}
+    }
+    .celebration-card h2{
+      position:relative;
+      z-index:1;
+      color:var(--dark);
+      font-size:1.8rem;
+      font-weight:900;
+      margin-bottom:8px;
+      letter-spacing:-.4px;
+    }
+    .celebration-card p{
+      position:relative;
+      z-index:1;
+      color:var(--muted);
+      line-height:1.75;
+      font-weight:800;
+      margin:0 auto 18px;
+      max-width:360px;
+    }
+    .celebration-summary{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:18px 0 20px;
+    }
+    .celebration-summary-item{
+      background:#f8fafc;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:13px 10px;
+    }
+    .celebration-summary-label{
+      display:block;
+      color:var(--muted);
+      font-size:.78rem;
+      font-weight:900;
+      margin-bottom:4px;
+    }
+    .celebration-summary-value{
+      display:block;
+      color:var(--dark);
+      font-size:1.05rem;
+      font-weight:900;
+      word-break:break-word;
+    }
+    .celebration-actions{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:4px;
+    }
+    .celebration-btn{
+      min-height:48px;
+      border-radius:17px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.25s;
+    }
+    .celebration-share{
+      background:var(--gradient);
+      color:white;
+      box-shadow:0 16px 32px rgba(109,40,217,.22);
+    }
+    .celebration-close{
+      background:#f8fafc;
+      color:var(--dark);
+      border:1px solid var(--line);
+    }
+    .celebration-btn:hover{transform:translateY(-2px)}
+    .confetti-piece{
+      position:fixed;
+      width:10px;
+      height:17px;
+      z-index:10007;
+      top:-24px;
+      border-radius:3px;
+      animation:confettiFall linear forwards;
+      pointer-events:none;
+    }
+    @keyframes confettiFall{
+      0%{transform:translate3d(0,-24px,0) rotate(0deg);opacity:1}
+      100%{transform:translate3d(var(--drift),110vh,0) rotate(780deg);opacity:0}
+    }
+    @media (max-width:560px){
+      .celebration-card{padding:32px 18px 20px;border-radius:30px}
+      .celebration-summary{grid-template-columns:1fr}
+      .celebration-actions{grid-template-columns:1fr}
+    }
 
-        let selectedAmounts = {};
-        campaigns.forEach(camp => { selectedAmounts[camp.id] = 10; });
+    @media (max-width:900px){
+      .detail-body{grid-template-columns:1fr}
+      .detail-stats-grid{grid-template-columns:1fr}
+      .detail-hero{min-height:300px;padding:24px 18px}
+    }
 
-        async function authenticate() {
-            try {
-                const scopes = ['username', 'payments'];
-                const authResult = await Pi.authenticate(scopes, onIncompletePaymentFound);
-                document.getElementById('user').innerText = `مرحباً، ${authResult.user.username} 👋`;
-            } catch (err) {
-                console.error(err);
-                document.getElementById('user').innerText = "فشل التوثيق، تأكد من Pi Browser";
-            }
-        }
-
-        function onIncompletePaymentFound(payment) { console.log("دفع غير مكتمل:", payment); }
-
-        function selectAmount(campaignId, amount) {
-            selectedAmounts[campaignId] = amount;
-            document.querySelectorAll(`.amount-btn[data-campaign="${campaignId}"]`).forEach(btn => btn.classList.remove('selected'));
-            event.target.classList.add('selected');
-            const customInput = document.getElementById(`custom-${campaignId}`);
-            if (customInput) customInput.value = '';
-        }
-
-        function useCustomAmount(campaignId) {
-            const input = document.getElementById(`custom-${campaignId}`);
-            const value = parseFloat(input.value.replace(',', '.'));
-            if (isNaN(value) || value <= 0) {
-                alert("أدخل مبلغ صحيح أكبر من صفر (مثل 0.001 أو 1.5)");
-                return;
-            }
-            selectedAmounts[campaignId] = value;
-            document.querySelectorAll(`.amount-btn[data-campaign="${campaignId}"]`).forEach(btn => btn.classList.remove('selected'));
-        }
-
-        async function donateWithPi(campaignId) {
-            const amount = selectedAmounts[campaignId];
-
-            if (!amount || amount <= 0) {
-                alert("اختر أو أدخل مبلغ تبرع صحيح");
-                return;
-            }
-
-            const campaign = campaigns.find(c => c.id === campaignId);
-
-            const paymentData = {
-                amount: amount,
-                memo: `تبرع بـ ${amount} Pi لـ ${campaign.title} - شكراً على دعمك ❤️`,
-                metadata: { campaign_id: campaign.id, amount: amount }
-            };
-
-            const callbacks = {
-                onReadyForServerApproval: function(paymentId) {
-                    fetch('/.netlify/functions/approve', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId, campaign_id: campaign.id })
-                    })
-                    .then(res => res.json())
-                    .then(data => console.log("Approval:", data))
-                    .catch(err => console.error(err));
-                },
-                onReadyForServerCompletion: function(paymentId, txid) {
-                    fetch('/.netlify/functions/complete', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentId, txid, campaign_id: campaign.id })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        console.log("Completion:", data);
-                        // لا نعرض alert من الموقع – نترك الرسالة للمحفظة فقط
-                    })
-                    .catch(err => console.error(err));
-                },
-                onCancel: () => {}, // لا رسالة
-                onError: (error) => console.error("Pi Error:", error)
-            };
-
-            Pi.createPayment(paymentData, callbacks);
-        }
-
-        window.onload = function() {
-            authenticate();
-            const container = document.getElementById('campaigns');
-            campaigns.forEach(camp => {
-                const card = document.createElement('div');
-                card.className = 'campaign-card';
-                card.innerHTML = `
-                    <div class="icon">${camp.icon}</div>
-                    <h2 class="campaign-title">${camp.title}</h2>
-                    <p class="campaign-desc">${camp.desc}</p>
-                    
-                    <div class="donate-options">
-                        <button class="amount-btn selected" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 5)">5 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 10)">10 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 50)">50 Pi</button>
-                        <button class="amount-btn" data-campaign="${camp.id}" onclick="selectAmount('${camp.id}', 100)">100 Pi</button>
-                    </div>
-                    
-                    <div class="custom-amount">
-                        <input type="number" step="0.001" min="0.001" id="custom-${camp.id}" class="custom-input" placeholder="مبلغ مخصص">
-                        <button class="amount-btn" onclick="useCustomAmount('${camp.id}')">تفعيل</button>
-                    </div>
-                    
-                    <button class="donate" onclick="donateWithPi('${camp.id}')">تبرع الآن بـ Pi</button>
-                `;
-                container.appendChild(card);
-            });
-        };
-    </script>
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">π</div>
-            <h1>Donate Way</h1>
-            <p class="intro">تبرع بعملة Pi Network لدعم الحملات الخيرية والإنسانية</p>
-            <div id="user">جاري التوثيق عبر Pi...</div>
+  <div id="custom-alert"></div>
+  <div id="drawer-overlay" class="drawer-overlay" onclick="toggleDrawer()"></div>
+
+  <div id="side-drawer" class="side-drawer">
+    <h2 class="drawer-title">
+      <span class="live-indicator"></span>
+      <span data-i18n="drawer_stats_title">Platform stats</span>
+    </h2>
+
+    <div class="stats-card">
+      <div class="stats-main">
+        <div class="stat-item">
+          <span class="stat-label" data-i18n="stats_total_donations">Total donations</span>
+          <span id="total-pi-stats" class="stat-value">0.00 π</span>
         </div>
-
-        <div id="campaigns" class="campaigns"></div>
-
-        <div class="note">
-            <strong>ملاحظة:</strong> يمكنك اختيار مبلغ ثابت أو كتابة مبلغ مخصص (مثل 0.001 أو 1.5 أو 999 Pi).<br>
-            الدفع يتم عبر محفظة Pi الرسمية.
+        <div class="stat-item">
+          <span class="stat-label" data-i18n="stats_total_campaigns">Campaigns</span>
+          <span id="total-campaigns-stats" class="stat-value">0</span>
         </div>
-
-        <footer>Donate Way © 2025 - مدعوم بتقنية Pi Network</footer>
+      </div>
     </div>
+
+    <div class="stats-grid">
+      <div class="drawer-metric">
+        <div class="metric-label" data-i18n="stats_donors">Donors</div>
+        <div id="stats-donors-count" class="metric-value">0</div>
+      </div>
+      <div class="drawer-metric">
+        <div class="metric-label" data-i18n="stats_average">Average</div>
+        <div id="stats-average-donation" class="metric-value">0.00 π</div>
+      </div>
+      <div class="drawer-metric">
+        <div class="metric-label" data-i18n="stats_last">Latest donation</div>
+        <div id="stats-last-donation" class="metric-value">-</div>
+      </div>
+      <div class="drawer-metric">
+        <div class="metric-label" data-i18n="stats_top">Top donor</div>
+        <div id="stats-top-donor" class="metric-value">-</div>
+      </div>
+    </div>
+
+    <div class="drawer-progress">
+      <div class="drawer-progress-head">
+        <span data-i18n="stats_total_progress">Total progress</span>
+        <span id="stats-progress-text">0%</span>
+      </div>
+      <div class="drawer-progress-track">
+        <div id="stats-progress-fill" class="drawer-progress-fill"></div>
+      </div>
+    </div>
+
+    <h3 class="drawer-title" style="font-size:1.08rem;margin-top:20px;">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span data-i18n="drawer_donors_title">All donors log</span>
+    </h3>
+    <div id="all-donors-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+
+  <div id="image-modal" class="modal" onclick="closeImage()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="close-modal" onclick="closeImage()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <h3 id="modal-title" style="margin-bottom:15px;color:var(--dark);font-weight:900;" data-i18n="modal_title_default">Your donation impact</h3>
+      <img id="modal-img-src" src="" class="modal-img" alt="Donation impact">
+    </div>
+  </div>
+
+
+
+  <div id="campaign-detail-modal" class="modal campaign-detail-modal" onclick="closeCampaignDetails()">
+    <div class="modal-content campaign-detail-content" onclick="event.stopPropagation()">
+      <button class="close-modal detail-close-top" onclick="closeCampaignDetails()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <div id="campaign-detail-content"></div>
+    </div>
+  </div>
+
+  <div id="profile-modal" class="modal" onclick="closeProfile()">
+    <div class="modal-content profile-modal-content" onclick="event.stopPropagation()">
+      <button class="close-modal" onclick="closeProfile()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+
+      <div class="profile-avatar" id="prof-avatar">U</div>
+      <h2 style="color:var(--dark);margin-bottom:5px;font-weight:900;"><span id="profile-username">@username</span></h2>
+      <div style="font-size:.9rem;color:var(--muted);margin-bottom:10px;font-weight:800;" data-i18n="profile_title">My profile</div>
+      <div id="profile-badge" class="donor-badge badge-blue" style="justify-content:center;margin:0 auto 8px;width:max-content;">
+        <span class="badge-dot"></span>
+        <span data-i18n="badge_new">New supporter</span>
+      </div>
+
+      <div class="profile-stats-grid">
+        <div class="profile-stat-box">
+          <div class="profile-stat-value" id="prof-total">0.00 π</div>
+          <div class="profile-stat-label" data-i18n="profile_total">Total donated</div>
+        </div>
+        <div class="profile-stat-box">
+          <div class="profile-stat-value" id="prof-camps">0</div>
+          <div class="profile-stat-label" data-i18n="profile_campaigns">Campaigns helped</div>
+        </div>
+        <div class="profile-stat-box" style="grid-column:1 / -1;">
+          <div class="profile-stat-value" id="prof-rank">-</div>
+          <div class="profile-stat-label" data-i18n="profile_rank">Global rank</div>
+        </div>
+      </div>
+
+      <h3 style="margin:15px 0 10px;color:var(--dark);font-size:1.08rem;text-align:center;font-weight:900;" data-i18n="profile_history">Donation history</h3>
+      <div id="prof-history" class="history-list"></div>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-right">
+      <button class="menu-btn" onclick="toggleDrawer()" aria-label="Open menu">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+      </button>
+      <div class="logo" onclick="location.reload()">
+        <span class="logo-mark">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.35-9.33-8.6C.74 8.88 2.73 5 6.58 5c2.17 0 3.5 1.2 4.18 2.13C11.44 6.2 12.77 5 14.94 5c3.85 0 5.84 3.88 3.91 7.4C16.52 16.65 12 21 12 21Z"/></svg>
+        </span>
+        <span>Donate Way</span>
+      </div>
+    </div>
+
+    <div class="auth-section">
+      <button id="login-button" onclick="login()">
+        <span data-i18n="btn_login">Login</span>
+      </button>
+      <div id="user-pill" class="user-pill" onclick="openProfile()">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="username-display"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-5"/></svg>
+          <span data-i18n="hero_badge">Verified giving with Pi</span>
+        </div>
+        <h1 class="hero-title" data-i18n="hero_title">Your gift today... a new life tomorrow</h1>
+        <p class="hero-subtitle" data-i18n="hero_subtitle">
+          Choose a trusted campaign, donate in seconds, and follow the impact of every contribution through transparent progress and donor records.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-link" href="#campaigns-container">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            <span data-i18n="hero_cta">Start donating</span>
+          </a>
+          <button class="secondary-link" type="button" onclick="toggleDrawer()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            <span data-i18n="hero_stats_btn">View platform stats</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-panel">
+        <div class="mini-stat">
+          <div class="mini-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <div class="mini-value" id="hero-total-pi">0.00 π</div>
+          <div class="mini-label" data-i18n="hero_total_label">Total raised</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
+          <div class="mini-value" id="hero-campaigns-count">0</div>
+          <div class="mini-label" data-i18n="hero_campaigns_label">Active campaigns</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-row">
+      <div class="trust-card">
+        <span class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-5"/></svg></span>
+        <div>
+          <strong data-i18n="feature_secure_title">Secure Pi payments</strong>
+          <p data-i18n="feature_secure_desc">Payments are handled through the Pi SDK flow with server approval and completion.</p>
+        </div>
+      </div>
+
+      <div class="trust-card">
+        <span class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
+        <div>
+          <strong data-i18n="feature_progress_title">Live campaign progress</strong>
+          <p data-i18n="feature_progress_desc">Each campaign shows current donations, goals, and progress percentage.</p>
+        </div>
+      </div>
+
+      <div class="trust-card">
+        <span class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></span>
+        <div>
+          <strong data-i18n="feature_impact_title">Impact gallery</strong>
+          <p data-i18n="feature_impact_desc">Campaigns can display result images so donors see how their help matters.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" data-i18n="campaigns_title">Donation campaigns</h2>
+          <p class="section-desc" data-i18n="campaigns_desc">Filter by cause and support the campaign closest to your heart.</p>
+        </div>
+      </div>
+
+      <div class="filter-container">
+        <button class="filter-btn active" onclick="filterCampaigns('all', this)" data-i18n="filter_all">All</button>
+        <button class="filter-btn" onclick="filterCampaigns('health', this)" data-i18n="filter_health">Health</button>
+        <button class="filter-btn" onclick="filterCampaigns('education', this)" data-i18n="filter_education">Education</button>
+        <button class="filter-btn" onclick="filterCampaigns('food', this)" data-i18n="filter_food">Food</button>
+        <button class="filter-btn" onclick="filterCampaigns('emergency', this)" data-i18n="filter_emergency">Emergency</button>
+      </div>
+
+      <div id="main-loader" class="loader"></div>
+      <div class="campaigns-grid" id="campaigns-container"></div>
+    </section>
+
+    <div class="heroes-section">
+      <h2 data-i18n="heroes_title">Top donors</h2>
+      <p data-i18n="heroes_desc">A clean honor board for people making a real difference.</p>
+      <div id="heroes-container" class="heroes-list"></div>
+    </div>
+  </main>
+
+
+  <div id="celebration-modal" class="celebration-modal" onclick="closeCelebration()">
+    <div class="celebration-card" onclick="event.stopPropagation()">
+      <button class="celebration-close-x" onclick="closeCelebration()" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+
+      <div class="celebration-check">
+        <svg class="icon" viewBox="0 0 24 24" style="width:40px;height:40px;"><path d="m5 12 5 5L20 7"/></svg>
+      </div>
+
+      <h2 id="celebration-title">Thank you!</h2>
+      <p id="celebration-message">Your donation has been completed successfully.</p>
+
+      <div class="celebration-summary">
+        <div class="celebration-summary-item">
+          <span class="celebration-summary-label" data-i18n="celebration_donor">Donor</span>
+          <span id="celebration-donor" class="celebration-summary-value">-</span>
+        </div>
+        <div class="celebration-summary-item">
+          <span class="celebration-summary-label" data-i18n="celebration_amount">Amount</span>
+          <span id="celebration-amount" class="celebration-summary-value">0 π</span>
+        </div>
+        <div class="celebration-summary-item" style="grid-column:1 / -1;">
+          <span class="celebration-summary-label" data-i18n="celebration_campaign">Campaign</span>
+          <span id="celebration-campaign" class="celebration-summary-value">-</span>
+        </div>
+      </div>
+
+      <div class="celebration-actions">
+        <button class="celebration-btn celebration-share" onclick="shareLastDonation()">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg>
+          <span id="celebration-share-label">Share</span>
+        </button>
+        <button class="celebration-btn celebration-close" onclick="closeCelebration()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+          <span id="celebration-close-label">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <button class="lang-ball" id="lang-ball" onclick="toggleLanguage()" aria-label="Toggle Language">
+    <span id="lang-ball-label">AR</span>
+  </button>
+
+  <script>
+    const SUPABASE_URL = 'https://axjkwrssmofzavaoqutq.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_tiuMncgWhf1YRWoD-uYQ3Q_ziI8OKci';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const Pi = window.Pi;
+
+    let currentUser = null;
+    let campaigns = [];
+    let globalDonorStats = [];
+    let currentLang = 'en';
+    let currentCategory = 'all';
+    let lastDonationShare = null;
+
+    const ICONS = {
+      category: '<svg class="icon" viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2.83 2.83 0 0 0 9 3H4a1 1 0 0 0-1 1v5c0 .75.3 1.47.83 2l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83Z"/><path d="M7.5 7.5h.01"/></svg>',
+      updates: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
+      donate: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-4.35-9.33-8.6C.74 8.88 2.73 5 6.58 5c2.17 0 3.5 1.2 4.18 2.13C11.44 6.2 12.77 5 14.94 5c3.85 0 5.84 3.88 3.91 7.4C16.52 16.65 12 21 12 21Z"/></svg>',
+      image: '<svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+      share: '<svg class="icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg>',
+      copy: '<svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      details: '<svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>',
+      video: '<svg class="icon" viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>',
+      users: '<svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+    };
+
+    const I18N = {
+      en: {
+        drawer_stats_title: "Platform stats",
+        stats_total_donations: "Total donations",
+        stats_total_campaigns: "Campaigns",
+        stats_donors: "Donors",
+        stats_average: "Average",
+        stats_last: "Latest donation",
+        stats_top: "Top donor",
+        stats_total_progress: "Total progress",
+        drawer_donors_title: "All donors log",
+        modal_title_default: "Your donation impact",
+        modal_impact_prefix: "Donation impact: ",
+        msg_impact_soon: "Impact images will be available soon.",
+        btn_login: "Login",
+        hero_badge: "Verified giving with Pi",
+        hero_title: "Your gift today... a new life tomorrow",
+        hero_subtitle: "Choose a trusted campaign, donate in seconds, and follow the impact of every contribution through transparent progress and donor records.",
+        hero_cta: "Start donating",
+        hero_stats_btn: "View platform stats",
+        hero_total_label: "Total raised",
+        hero_campaigns_label: "Active campaigns",
+        feature_secure_title: "Secure Pi payments",
+        feature_secure_desc: "Payments are handled through the Pi SDK flow with server approval and completion.",
+        feature_progress_title: "Live campaign progress",
+        feature_progress_desc: "Each campaign shows current donations, goals, and progress percentage.",
+        feature_impact_title: "Impact gallery",
+        feature_impact_desc: "Campaigns can display result images so donors see how their help matters.",
+        campaigns_title: "Donation campaigns",
+        campaigns_desc: "Filter by cause and support the campaign closest to your heart.",
+        heroes_title: "Top donors",
+        heroes_desc: "A clean honor board for people making a real difference.",
+        rank_label: "Rank",
+        label_goal: "Goal:",
+        label_raised: "Raised",
+        label_remaining: "Remaining",
+        label_completed: "Completed",
+        updates_title: "Campaign updates",
+        update_default_1: "Campaign is open for support.",
+        update_default_2: "Donations are tracked live on the platform.",
+        btn_donate_now: "Donate now",
+        btn_connecting: "Connecting...",
+        btn_done: "Donated",
+        btn_view_impact: "View impact",
+        btn_details: "Campaign details",
+        details_about: "About this campaign",
+        details_gallery: "Gallery",
+        details_video: "Campaign video",
+        details_donors: "Recent donors",
+        details_no_description: "No full description has been added yet.",
+        details_no_gallery: "No gallery images yet.",
+        details_no_donors: "No donations for this campaign yet.",
+        btn_share: "Share",
+        btn_copy: "Copy link",
+        placeholder_amount: "0.00",
+        msg_login_first: "Please login first.",
+        msg_valid_amount: "Enter a valid amount.",
+        msg_use_pi_browser: "Please use Pi Browser.",
+        msg_thanks: "Thank you!",
+        msg_pay_error: "Payment error occurred.",
+        msg_no_donations: "No donations yet.",
+        msg_no_campaigns: "No campaigns in this category yet.",
+        msg_link_copied: "Campaign link copied.",
+        memo_prefix: "Donation for: ",
+        share_text: "Support this campaign on Donate Way:",
+        celebration_title: "Thank you, {username}!",
+        celebration_message: "Your donation was completed successfully. You are now part of this campaign’s impact.",
+        celebration_donor: "Donor",
+        celebration_amount: "Amount",
+        celebration_campaign: "Campaign",
+        celebration_share_btn: "I supported this",
+        celebration_close: "Close",
+        celebration_share: "I just donated {amount}π to {campaign} on Donate Way.",
+        profile_title: "My profile",
+        profile_total: "Total donated",
+        profile_campaigns: "Campaigns helped",
+        profile_rank: "Global rank",
+        profile_history: "Donation history",
+        badge_new: "New supporter",
+        badge_kind: "Kind supporter",
+        badge_champion: "Giving champion",
+        badge_legend: "Impact legend",
+        filter_all: "All",
+        filter_health: "Health",
+        filter_education: "Education",
+        filter_food: "Food",
+        filter_emergency: "Emergency"
+      },
+      ar: {
+        drawer_stats_title: "إحصائيات المنصة",
+        stats_total_donations: "إجمالي التبرعات",
+        stats_total_campaigns: "عدد الحملات",
+        stats_donors: "المتبرعون",
+        stats_average: "متوسط التبرع",
+        stats_last: "آخر تبرع",
+        stats_top: "أكبر متبرع",
+        stats_total_progress: "إجمالي التقدم",
+        drawer_donors_title: "سجل جميع المتبرعين",
+        modal_title_default: "أثر تبرعكم",
+        modal_impact_prefix: "أثر تبرعكم: ",
+        msg_impact_soon: "سيتم رفع صور الأثر قريباً",
+        btn_login: "دخول",
+        hero_badge: "تبرع موثّق باستخدام Pi",
+        hero_title: "عطاؤك اليوم.. حياة جديدة لغيرك غداً",
+        hero_subtitle: "اختر حملة موثوقة، تبرع خلال ثوانٍ، وتابع أثر مساهمتك من خلال تقدم واضح وسجل شفاف للمتبرعين.",
+        hero_cta: "ابدأ التبرع",
+        hero_stats_btn: "عرض إحصائيات المنصة",
+        hero_total_label: "إجمالي ما تم جمعه",
+        hero_campaigns_label: "حملات نشطة",
+        feature_secure_title: "مدفوعات Pi آمنة",
+        feature_secure_desc: "تتم المدفوعات عبر Pi SDK مع موافقة وإكمال من الخادم.",
+        feature_progress_title: "تقدم مباشر للحملات",
+        feature_progress_desc: "كل حملة تعرض المبلغ الحالي والهدف ونسبة الإنجاز.",
+        feature_impact_title: "معرض أثر التبرع",
+        feature_impact_desc: "يمكن للحملات عرض صور النتائج حتى يرى المتبرع أثر مساهمته.",
+        campaigns_title: "حملات التبرع",
+        campaigns_desc: "صفّي الحملات حسب المجال وادعم الأقرب لقلبك.",
+        heroes_title: "قائمة أبطال الخير",
+        heroes_desc: "لوحة شرف أنيقة لأشخاص يصنعون أثراً حقيقياً.",
+        rank_label: "مركز",
+        label_goal: "الهدف:",
+        label_raised: "تم جمع",
+        label_remaining: "المتبقي",
+        label_completed: "مكتمل",
+        updates_title: "تحديثات الحملة",
+        update_default_1: "الحملة مفتوحة لاستقبال الدعم.",
+        update_default_2: "يتم تتبع التبرعات مباشرة على المنصة.",
+        btn_donate_now: "تبرع الآن",
+        btn_connecting: "جاري الاتصال...",
+        btn_done: "تم التبرع",
+        btn_view_impact: "مشاهدة الأثر",
+        btn_details: "تفاصيل الحملة",
+        details_about: "عن هذه الحملة",
+        details_gallery: "معرض الصور",
+        details_video: "فيديو الحملة",
+        details_donors: "آخر المتبرعين",
+        details_no_description: "لم يتم إضافة وصف كامل للحملة بعد.",
+        details_no_gallery: "لا توجد صور إضافية حالياً.",
+        details_no_donors: "لا توجد تبرعات لهذه الحملة حتى الآن.",
+        btn_share: "مشاركة",
+        btn_copy: "نسخ الرابط",
+        placeholder_amount: "0.00",
+        msg_login_first: "سجل دخولك أولاً",
+        msg_valid_amount: "أدخل مبلغاً صحيحاً",
+        msg_use_pi_browser: "استخدم متصفح Pi",
+        msg_thanks: "شكراً لك!",
+        msg_pay_error: "حدث خطأ في الدفع",
+        msg_no_donations: "لا توجد تبرعات حتى الآن.",
+        msg_no_campaigns: "لا توجد حملات في هذا التصنيف حالياً.",
+        msg_link_copied: "تم نسخ رابط الحملة.",
+        memo_prefix: "تبرع لـ: ",
+        share_text: "ادعم هذه الحملة على Donate Way:",
+        celebration_title: "شكراً يا {username}!",
+        celebration_message: "تم تبرعك بنجاح. أنت الآن جزء من أثر هذه الحملة.",
+        celebration_donor: "المتبرع",
+        celebration_amount: "المبلغ",
+        celebration_campaign: "الحملة",
+        celebration_share_btn: "أنا دعمت الحملة",
+        celebration_close: "إغلاق",
+        celebration_share: "أنا تبرعت بقيمة {amount}π لحملة {campaign} على Donate Way.",
+        profile_title: "ملفي الشخصي",
+        profile_total: "إجمالي تبرعاتي",
+        profile_campaigns: "حملات دعمتها",
+        profile_rank: "تصنيفي العالمي",
+        profile_history: "سجل تبرعاتي",
+        badge_new: "داعم جديد",
+        badge_kind: "داعم كريم",
+        badge_champion: "بطل العطاء",
+        badge_legend: "صانع أثر",
+        filter_all: "الكل",
+        filter_health: "صحة",
+        filter_education: "تعليم",
+        filter_food: "إطعام",
+        filter_emergency: "طوارئ"
+      }
+    };
+
+    function t(key){
+      return (I18N[currentLang] && I18N[currentLang][key]) ? I18N[currentLang][key] : key;
+    }
+
+    function escapeHtml(value){
+      return String(value ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+
+    function categoryLabel(category){
+      const map = {
+        health: t('filter_health'),
+        education: t('filter_education'),
+        food: t('filter_food'),
+        emergency: t('filter_emergency')
+      };
+      return map[category] || t('filter_all');
+    }
+
+    function donorBadge(total){
+      const amount = parseFloat(total || 0);
+      if(amount >= 100) return { label:t('badge_legend'), cls:'badge-gold' };
+      if(amount >= 30) return { label:t('badge_champion'), cls:'badge-hero' };
+      if(amount > 0) return { label:t('badge_kind'), cls:'badge-green' };
+      return { label:t('badge_new'), cls:'badge-blue' };
+    }
+
+    function getCampaignUpdates(c){
+      let updates = [];
+      if(Array.isArray(c.updates)) updates = c.updates;
+      else if(typeof c.updates === 'string'){
+        try{
+          const parsed = JSON.parse(c.updates);
+          updates = Array.isArray(parsed) ? parsed : [c.updates];
+        }catch(e){
+          updates = c.updates.split('|').map(x => x.trim()).filter(Boolean);
+        }
+      }
+      if(c.latest_update) updates.unshift(c.latest_update);
+      if(c.update_text) updates.unshift(c.update_text);
+      updates = updates.filter(Boolean).slice(0,2);
+      if(updates.length === 0) updates = [t('update_default_1'), t('update_default_2')];
+      return updates;
+    }
+
+
+    function parseCampaignGallery(c){
+      let gallery = [];
+      if(Array.isArray(c.gallery)) gallery = c.gallery;
+      else if(typeof c.gallery === 'string'){
+        try{
+          const parsed = JSON.parse(c.gallery);
+          gallery = Array.isArray(parsed) ? parsed : [c.gallery];
+        }catch(e){
+          gallery = c.gallery.split('|').map(x => x.trim()).filter(Boolean);
+        }
+      }
+      if(c.image_url) gallery.unshift(c.image_url);
+      if(c.result_image_url) gallery.push(c.result_image_url);
+      return [...new Set(gallery.filter(Boolean))].slice(0,8);
+    }
+
+    function videoEmbedUrl(url){
+      if(!url) return '';
+      const value = String(url).trim();
+      if(value.includes('youtube.com/watch?v=')) return value.replace('watch?v=', 'embed/').split('&')[0];
+      if(value.includes('youtu.be/')) return 'https://www.youtube.com/embed/' + value.split('youtu.be/')[1].split('?')[0];
+      return value;
+    }
+
+    async function getCampaignDonors(campaignId){
+      try{
+        const { data } = await _supabase.from('donations')
+          .select('username, amount')
+          .eq('campaign_id', campaignId)
+          .order('id', { ascending:false })
+          .limit(8);
+        return data || [];
+      }catch(e){
+        return [];
+      }
+    }
+
+    function campaignUrl(id){
+      const base = window.location.href.split('#')[0];
+      return `${base}#campaign-${id}`;
+    }
+
+    function applyLanguage(){
+      const html = document.documentElement;
+      html.lang = currentLang;
+      html.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+      });
+
+      document.getElementById('lang-ball-label').textContent = currentLang === 'en' ? 'AR' : 'EN';
+      renderCamps();
+      renderHeroes(globalDonorStats.slice(0,5));
+      updateHeroStats();
+      updateProfileBadgePreview();
+    }
+
+    function toggleLanguage(){
+      currentLang = currentLang === 'en' ? 'ar' : 'en';
+      applyLanguage();
+    }
+
+    function filterCampaigns(category, btnElement){
+      currentCategory = category;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      if(btnElement) btnElement.classList.add('active');
+      renderCamps();
+    }
+
+    function setQuickAmount(campaignId, amount){
+      document.getElementById(`in-${campaignId}`).value = amount;
+    }
+
+    const onIncompletePaymentFound = async (payment) => {
+      console.log("Incomplete payment found:", payment);
+      try{
+        await fetch('/api/pi/complete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ paymentId: payment.identifier, txid: payment.transaction.txid })
+        });
+      }catch(e){
+        console.error("Error completing pending payment:", e);
+      }
+    };
+
+    function toggleDrawer(){
+      const drawer = document.getElementById('side-drawer');
+      const overlay = document.getElementById('drawer-overlay');
+      drawer.classList.toggle('active');
+      overlay.style.display = drawer.classList.contains('active') ? 'block' : 'none';
+      if(drawer.classList.contains('active')) loadGlobalStats();
+    }
+
+    function updateHeroStats(){
+      const totalPi = globalDonorStats.reduce((sum, d) => sum + parseFloat(d.total || 0), 0);
+      const heroTotal = document.getElementById('hero-total-pi');
+      const heroCampaigns = document.getElementById('hero-campaigns-count');
+      if(heroTotal) heroTotal.innerText = totalPi.toFixed(2) + " π";
+      if(heroCampaigns) heroCampaigns.innerText = campaigns.length || 0;
+    }
+
+    function updateProfileBadgePreview(total = 0){
+      const badgeEl = document.getElementById('profile-badge');
+      if(!badgeEl) return;
+      const badge = donorBadge(total);
+      badgeEl.className = `donor-badge ${badge.cls}`;
+      badgeEl.innerHTML = `<span class="badge-dot"></span><span>${badge.label}</span>`;
+    }
+
+    async function loadGlobalStats(){
+      const { data: dons } = await _supabase.from('donations').select('username, amount');
+      const { data: camps } = await _supabase.from('campaigns').select('id, current_amount, target_amount');
+
+      let totalPi = 0;
+      let uniqueDonors = 0;
+      let avg = 0;
+      let latest = '-';
+      let topDonor = '-';
+
+      if(dons){
+        totalPi = dons.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
+        const donorNames = [...new Set(dons.map(d => d.username).filter(Boolean))];
+        uniqueDonors = donorNames.length;
+        avg = dons.length ? totalPi / dons.length : 0;
+        const lastDonation = dons[dons.length - 1];
+        latest = lastDonation ? `${parseFloat(lastDonation.amount || 0).toFixed(2)} π` : '-';
+
+        const totals = dons.reduce((acc, curr) => {
+          acc[curr.username] = (acc[curr.username] || 0) + parseFloat(curr.amount || 0);
+          return acc;
+        }, {});
+        const top = Object.entries(totals).sort((a,b) => b[1] - a[1])[0];
+        topDonor = top ? '@' + top[0] : '-';
+
+        document.getElementById('total-pi-stats').innerText = totalPi.toFixed(2) + " π";
+        document.getElementById('stats-donors-count').innerText = uniqueDonors;
+        document.getElementById('stats-average-donation').innerText = avg.toFixed(2) + " π";
+        document.getElementById('stats-last-donation').innerText = latest;
+        document.getElementById('stats-top-donor').innerText = topDonor;
+
+        document.getElementById('all-donors-list').innerHTML = dons.map(d => {
+          const badge = donorBadge(d.amount);
+          return `
+            <div style="background:white;padding:13px;border-radius:17px;display:flex;justify-content:space-between;gap:10px;border:1px solid #e2e8f0;box-shadow:0 8px 20px rgba(15,23,42,.04);">
+              <div>
+                <div style="font-weight:900;color:var(--dark);">@${escapeHtml(d.username || 'user')}</div>
+                <div class="donor-badge ${badge.cls}" style="margin-top:5px;"><span class="badge-dot"></span><span>${badge.label}</span></div>
+              </div>
+              <span style="color:var(--primary);font-weight:900;white-space:nowrap;">${parseFloat(d.amount || 0).toFixed(2)} π</span>
+            </div>
+          `;
+        }).reverse().join('');
+      }
+
+      if(camps){
+        document.getElementById('total-campaigns-stats').innerText = camps.length;
+        const currentTotal = camps.reduce((sum, c) => sum + parseFloat(c.current_amount || 0), 0);
+        const targetTotal = camps.reduce((sum, c) => sum + parseFloat(c.target_amount || 0), 0);
+        const progress = targetTotal > 0 ? Math.min((currentTotal / targetTotal) * 100, 100) : 0;
+        document.getElementById('stats-progress-text').innerText = progress.toFixed(0) + '%';
+        document.getElementById('stats-progress-fill').style.width = progress + '%';
+      }
+    }
+
+    function showMsg(text){
+      const alertBox = document.getElementById('custom-alert');
+      alertBox.innerText = text;
+      alertBox.style.display = 'block';
+      setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+    }
+
+
+    async function openCampaignDetails(id){
+      const c = campaigns.find(item => item.id == id);
+      if(!c) return;
+
+      const current = parseFloat(c.current_amount || 0);
+      const target = parseFloat(c.target_amount || 0);
+      const progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+      const remaining = Math.max(target - current, 0);
+      const safeTitle = escapeHtml(c.title || '');
+      const image = c.image_url || 'https://via.placeholder.com/1200x700?text=Donate+Way';
+      const description = escapeHtml(c.description || c.full_description || t('details_no_description'));
+      const updates = getCampaignUpdates(c);
+      const gallery = parseCampaignGallery(c);
+      const video = videoEmbedUrl(c.video_url || c.video || '');
+      const donors = await getCampaignDonors(id);
+      const donorsCount = donors.length || parseInt(c.donors_count || 0) || 0;
+
+      document.getElementById('campaign-detail-content').innerHTML = `
+        <div class="detail-hero">
+          <img class="detail-hero-img" src="${image}" alt="${safeTitle}">
+          <div class="detail-hero-overlay"></div>
+          <div class="detail-hero-content">
+            <div class="detail-chip">${ICONS.category}<span>${categoryLabel(c.category)}</span></div>
+            <h2 class="detail-title">${safeTitle}</h2>
+            <p class="detail-subtitle">${description}</p>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="detail-panel white">
+              <div class="detail-panel-title">${ICONS.details}<span>${t('details_about')}</span></div>
+              <div class="detail-description">${description}</div>
+            </div>
+
+            <div class="detail-panel">
+              <div class="detail-panel-title">${ICONS.updates}<span>${t('updates_title')}</span></div>
+              ${updates.map(item => `<div class="update-item">${escapeHtml(item)}</div>`).join('')}
+            </div>
+
+            <div class="detail-panel white">
+              <div class="detail-panel-title">${ICONS.image}<span>${t('details_gallery')}</span></div>
+              ${gallery.length ? `<div class="detail-gallery">${gallery.map(src => `<img src="${escapeHtml(src)}" alt="${safeTitle}" onclick="openImage('${escapeHtml(src)}','${safeTitle}')">`).join('')}</div>` : `<div class="detail-empty">${t('details_no_gallery')}</div>`}
+            </div>
+
+            ${video ? `
+            <div class="detail-panel white">
+              <div class="detail-panel-title">${ICONS.video}<span>${t('details_video')}</span></div>
+              <iframe class="detail-video" src="${escapeHtml(video)}" allowfullscreen loading="lazy"></iframe>
+            </div>` : ''}
+          </div>
+
+          <aside style="display:flex;flex-direction:column;gap:16px;">
+            <div class="detail-panel white">
+              <div class="detail-stats-grid">
+                <div class="detail-stat">
+                  <div class="detail-stat-label">${t('label_raised')}</div>
+                  <div class="detail-stat-value">${current.toFixed(2)} π</div>
+                </div>
+                <div class="detail-stat">
+                  <div class="detail-stat-label">${t('label_goal')}</div>
+                  <div class="detail-stat-value">${target.toFixed(2)} π</div>
+                </div>
+                <div class="detail-stat">
+                  <div class="detail-stat-label">${t('stats_donors')}</div>
+                  <div class="detail-stat-value">${donorsCount}</div>
+                </div>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+              <div class="progress-note"><span>${progress.toFixed(0)}%</span><span>${remaining <= 0 ? t('label_completed') : `${t('label_remaining')}: ${remaining.toFixed(2)} π`}</span></div>
+
+              <div class="quick-amounts">
+                <button class="quick-btn" onclick="setDetailAmount(${id}, 1)">1 π</button>
+                <button class="quick-btn" onclick="setDetailAmount(${id}, 5)">5 π</button>
+                <button class="quick-btn" onclick="setDetailAmount(${id}, 10)">10 π</button>
+              </div>
+              <input type="number" min="0" step="0.01" id="detail-in-${id}" class="detail-amount-input" placeholder="${t('placeholder_amount')}">
+              <div class="detail-actions">
+                <button id="detail-btn-${id}" class="donate-btn" onclick="handleDonateDetail(${id})">${ICONS.donate}<span>${t('btn_donate_now')}</span></button>
+                <button class="share-btn" onclick="shareCampaign(${id}, '${safeTitle}')">${ICONS.share}<span>${t('btn_share')}</span></button>
+                <button class="copy-btn" onclick="copyCampaignLink(${id})">${ICONS.copy}<span>${t('btn_copy')}</span></button>
+              </div>
+            </div>
+
+            <div class="detail-panel">
+              <div class="detail-panel-title">${ICONS.users}<span>${t('details_donors')}</span></div>
+              <div class="detail-donors-list">
+                ${donors.length ? donors.map(d => `
+                  <div class="detail-donor-item">
+                    <span class="detail-donor-name">@${escapeHtml(d.username || 'user')}</span>
+                    <span class="detail-donor-amount">${parseFloat(d.amount || 0).toFixed(2)} π</span>
+                  </div>
+                `).join('') : `<div class="detail-empty">${t('details_no_donors')}</div>`}
+              </div>
+            </div>
+          </aside>
+        </div>
+      `;
+
+      document.getElementById('campaign-detail-modal').style.display = 'flex';
+      window.location.hash = `campaign-${id}`;
+    }
+
+    function closeCampaignDetails(){
+      document.getElementById('campaign-detail-modal').style.display = 'none';
+    }
+
+    function setDetailAmount(campaignId, amount){
+      const input = document.getElementById(`detail-in-${campaignId}`);
+      if(input) input.value = amount;
+    }
+
+    function openImage(url, title){
+      if(!url || url === '' || url === 'null'){
+        showMsg(t('msg_impact_soon'));
+        return;
+      }
+      document.getElementById('modal-img-src').src = url;
+      document.getElementById('modal-title').innerText = t('modal_impact_prefix') + title;
+      document.getElementById('image-modal').style.display = 'flex';
+    }
+
+    function closeImage(){
+      document.getElementById('image-modal').style.display = 'none';
+      document.getElementById('modal-img-src').src = '';
+    }
+
+    async function openProfile(){
+      if(!currentUser) return;
+
+      document.getElementById('prof-avatar').innerText = currentUser.username.charAt(0).toUpperCase();
+      document.getElementById('profile-username').innerText = '@' + currentUser.username;
+      document.getElementById('prof-history').innerHTML = `<div style="text-align:center;padding:20px;color:#888;">${t('btn_connecting')}</div>`;
+      document.getElementById('profile-modal').style.display = 'flex';
+
+      const { data: userDons } = await _supabase.from('donations')
+        .select('*')
+        .eq('username', currentUser.username)
+        .order('id', { ascending:false });
+
+      if(userDons){
+        const totalAmount = userDons.reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
+        const uniqueCamps = new Set(userDons.map(d => d.campaign_id)).size;
+
+        document.getElementById('prof-total').innerText = totalAmount.toFixed(2) + ' π';
+        document.getElementById('prof-camps').innerText = uniqueCamps;
+        updateProfileBadgePreview(totalAmount);
+
+        const rankIndex = globalDonorStats.findIndex(s => s.username === currentUser.username);
+        document.getElementById('prof-rank').innerText = rankIndex >= 0 ? '#' + (rankIndex + 1) : '-';
+
+        if(userDons.length > 0){
+          document.getElementById('prof-history').innerHTML = userDons.map(d => {
+            const camp = campaigns.find(c => c.id == d.campaign_id);
+            const campTitle = camp ? camp.title : (t('memo_prefix') + d.campaign_id);
+            return `
+              <div class="history-item">
+                <span class="history-item-title">${escapeHtml(campTitle)}</span>
+                <span class="history-item-amount">+${parseFloat(d.amount || 0).toFixed(2)} π</span>
+              </div>`;
+          }).join('');
+        }else{
+          document.getElementById('prof-history').innerHTML = `<div style="text-align:center;padding:20px;color:#888;">${t('msg_no_donations')}</div>`;
+        }
+      }
+    }
+
+    function closeProfile(){
+      document.getElementById('profile-modal').style.display = 'none';
+    }
+
+    async function loadData(){
+      document.getElementById('main-loader').style.display = 'block';
+
+      const { data: camps } = await _supabase.from('campaigns').select('*').order('id');
+      if(camps){
+        campaigns = camps;
+        renderCamps();
+      }
+
+      const { data: dons } = await _supabase.from('donations').select('username, amount');
+      if(dons){
+        const totals = dons.reduce((acc, curr) => {
+          acc[curr.username] = (acc[curr.username] || 0) + parseFloat(curr.amount || 0);
+          return acc;
+        }, {});
+        globalDonorStats = Object.entries(totals)
+          .map(([username, total]) => ({ username, total }))
+          .sort((a,b) => b.total - a.total);
+
+        renderHeroes(globalDonorStats.slice(0,5));
+      }
+
+      updateHeroStats();
+      document.getElementById('main-loader').style.display = 'none';
+
+      const hashMatch = window.location.hash.match(/campaign-(\d+)/);
+      if(hashMatch){
+        const wanted = campaigns.find(c => String(c.id) === hashMatch[1]);
+        if(wanted) setTimeout(() => openCampaignDetails(wanted.id), 200);
+      }
+    }
+
+    function renderCamps(){
+      const container = document.getElementById('campaigns-container');
+      if(!container) return;
+
+      const filteredCampaigns = currentCategory === 'all'
+        ? campaigns
+        : campaigns.filter(c => c.category === currentCategory);
+
+      if(filteredCampaigns.length === 0){
+        container.innerHTML = `<div class="empty-state">${t('msg_no_campaigns')}</div>`;
+        return;
+      }
+
+      container.innerHTML = filteredCampaigns.map(c => {
+        const current = parseFloat(c.current_amount || 0);
+        const target = parseFloat(c.target_amount || 0);
+        const progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+        const remaining = Math.max(target - current, 0);
+        const isComplete = progress >= 100;
+        const updates = getCampaignUpdates(c);
+        const url = campaignUrl(c.id);
+        const safeTitle = escapeHtml(c.title || '');
+        const image = c.image_url || 'https://via.placeholder.com/600x360?text=Donate+Way';
+
+        return `
+          <div class="card" id="campaign-${c.id}">
+            <div class="image-wrap">
+              <img src="${image}" class="campaign-img" alt="${safeTitle}">
+              <div class="image-overlay"></div>
+              <span class="category-chip">${ICONS.category}<span>${categoryLabel(c.category)}</span></span>
+            </div>
+
+            <h3>${safeTitle}</h3>
+
+            <div class="campaign-meta">
+              <span>${t('label_raised')}: <strong>${current.toFixed(2)} π</strong></span>
+              <span>${t('label_goal')} ${target.toFixed(2)} π</span>
+            </div>
+
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${progress}%"></div>
+            </div>
+
+            <div class="progress-note">
+              <span>${progress.toFixed(0)}%</span>
+              <span>${isComplete ? t('label_completed') : `${t('label_remaining')}: ${remaining.toFixed(2)} π`}</span>
+            </div>
+
+            <div class="campaign-updates">
+              <div class="updates-title">${ICONS.updates}<span>${t('updates_title')}</span></div>
+              ${updates.map(item => `<div class="update-item">${escapeHtml(item)}</div>`).join('')}
+            </div>
+
+            <div class="quick-amounts">
+              <button class="quick-btn" onclick="setQuickAmount(${c.id}, 1)">1 π</button>
+              <button class="quick-btn" onclick="setQuickAmount(${c.id}, 5)">5 π</button>
+              <button class="quick-btn" onclick="setQuickAmount(${c.id}, 10)">10 π</button>
+            </div>
+
+            <input type="number" min="0" step="0.01" id="in-${c.id}" class="amount-input" placeholder="${t('placeholder_amount')}">
+
+            <div class="btn-group">
+              <button id="btn-${c.id}" class="donate-btn" onclick="handleDonate(${c.id})">${ICONS.donate}<span>${t('btn_donate_now')}</span></button>
+              <button class="details-btn" onclick="openCampaignDetails(${c.id})">${ICONS.details}<span>${t('btn_details')}</span></button>
+              <button class="result-btn" onclick="openImage('${escapeHtml(c.result_image_url || '')}', '${safeTitle}')">${ICONS.image}<span>${t('btn_view_impact')}</span></button>
+              <div class="share-row">
+                <button class="share-btn" onclick="shareCampaign(${c.id}, '${safeTitle}')">${ICONS.share}<span>${t('btn_share')}</span></button>
+                <button class="copy-btn" onclick="copyCampaignLink(${c.id})">${ICONS.copy}<span>${t('btn_copy')}</span></button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderHeroes(heroes){
+      const holder = document.getElementById('heroes-container');
+      if(!holder) return;
+
+      if(!heroes || heroes.length === 0){
+        holder.innerHTML = `<div class="empty-state" style="display:block;">${t('msg_no_donations')}</div>`;
+        return;
+      }
+
+      holder.innerHTML = heroes.map((h, i) => {
+        const badge = donorBadge(h.total);
+        return `
+          <div class="hero-card rank-${i+1}">
+            <div class="rank-tag">${t('rank_label')} ${i+1}</div>
+            <div class="hero-avatar">${escapeHtml((h.username || 'U').charAt(0).toUpperCase())}</div>
+            <div class="hero-name">@${escapeHtml(h.username || 'user')}</div>
+            <div class="hero-amount">${parseFloat(h.total || 0).toFixed(2)} π</div>
+            <div class="donor-badge ${badge.cls}"><span class="badge-dot"></span><span>${badge.label}</span></div>
+          </div>`;
+      }).join('');
+    }
+
+    async function shareCampaign(id, title){
+      const url = campaignUrl(id);
+      const text = `${t('share_text')} ${title}`;
+      if(navigator.share){
+        try{
+          await navigator.share({ title: title || 'Donate Way', text, url });
+        }catch(e){}
+      }else{
+        const message = encodeURIComponent(`${text} ${url}`);
+        window.open(`https://wa.me/?text=${message}`, '_blank');
+      }
+    }
+
+    async function copyCampaignLink(id){
+      const url = campaignUrl(id);
+      try{
+        await navigator.clipboard.writeText(url);
+        showMsg(t('msg_link_copied'));
+      }catch(e){
+        const temp = document.createElement('input');
+        temp.value = url;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showMsg(t('msg_link_copied'));
+      }
+    }
+
+
+    function launchConfetti(){
+      const colors = ['#6d28d9','#8b5cf6','#c026d3','#10b981','#f59e0b','#0ea5e9','#ef4444'];
+      for(let i = 0; i < 110; i++){
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDuration = (2.4 + Math.random() * 2.4) + 's';
+        piece.style.animationDelay = (Math.random() * .45) + 's';
+        piece.style.setProperty('--drift', ((Math.random() * 220) - 110) + 'px');
+        piece.style.opacity = String(.75 + Math.random() * .25);
+        piece.style.width = (7 + Math.random() * 7) + 'px';
+        piece.style.height = (12 + Math.random() * 12) + 'px';
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 5600);
+      }
+    }
+
+    function showDonationCelebration(amount, campaignTitle, campaignId){
+      const username = currentUser && currentUser.username ? currentUser.username : 'supporter';
+      const cleanAmount = parseFloat(amount || 0).toFixed(2);
+      const cleanCampaign = campaignTitle || 'Donate Way';
+      const url = campaignId ? campaignUrl(campaignId) : window.location.href;
+
+      lastDonationShare = {
+        amount: cleanAmount,
+        campaignTitle: cleanCampaign,
+        url,
+        text: t('celebration_share')
+          .replace('{amount}', cleanAmount)
+          .replace('{campaign}', cleanCampaign)
+      };
+
+      document.getElementById('celebration-title').innerText = t('celebration_title').replace('{username}', '@' + username);
+      document.getElementById('celebration-message').innerText = t('celebration_message');
+      document.getElementById('celebration-donor').innerText = '@' + username;
+      document.getElementById('celebration-amount').innerText = cleanAmount + ' π';
+      document.getElementById('celebration-campaign').innerText = cleanCampaign;
+      document.getElementById('celebration-share-label').innerText = t('celebration_share_btn');
+      document.getElementById('celebration-close-label').innerText = t('celebration_close');
+
+      document.getElementById('celebration-modal').style.display = 'flex';
+      launchConfetti();
+    }
+
+    function closeCelebration(){
+      document.getElementById('celebration-modal').style.display = 'none';
+    }
+
+    async function shareLastDonation(){
+      if(!lastDonationShare) return;
+
+      if(navigator.share){
+        try{
+          await navigator.share({
+            title: 'Donate Way',
+            text: lastDonationShare.text,
+            url: lastDonationShare.url || window.location.href
+          });
+        }catch(e){}
+      }else{
+        const message = encodeURIComponent(lastDonationShare.text + ' ' + (lastDonationShare.url || window.location.href));
+        window.open(`https://wa.me/?text=${message}`, '_blank');
+      }
+    }
+
+    async function login(){
+      try{
+        const auth = await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+        currentUser = auth.user;
+
+        document.getElementById('login-button').style.display = 'none';
+        document.getElementById('user-pill').style.display = 'flex';
+        document.getElementById('username-display').textContent = currentUser.username;
+      }catch(e){
+        showMsg(t('msg_use_pi_browser'));
+      }
+    }
+
+    async function recordDonation(amount, campaignId){
+      await _supabase.from('donations').insert([{
+        pi_user_id: currentUser.uid,
+        username: currentUser.username,
+        amount,
+        campaign_id: campaignId
+      }]);
+
+      const camp = campaigns.find(c => c.id == campaignId);
+      const nextAmount = (parseFloat(camp.current_amount || 0) || 0) + amount;
+
+      await _supabase.from('campaigns')
+        .update({ current_amount: nextAmount })
+        .eq('id', campaignId);
+
+      loadData();
+    }
+
+
+    function handleDonateDetail(id){
+      if(!currentUser) return showMsg(t('msg_login_first'));
+
+      const btn = document.getElementById(`detail-btn-${id}`);
+      const input = document.getElementById(`detail-in-${id}`);
+      const amt = parseFloat(input.value);
+
+      if(!amt || amt <= 0) return showMsg(t('msg_valid_amount'));
+
+      btn.disabled = true;
+      btn.innerText = t('btn_connecting');
+      document.getElementById('main-loader').style.display = 'block';
+
+      const campTitle = (campaigns.find(c => c.id == id) || {}).title || '';
+
+      Pi.createPayment({
+        amount: amt,
+        memo: `${t('memo_prefix')}${campTitle}`,
+        metadata: { campaignId: id }
+      }, {
+        onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ paymentId: payId })
+        }),
+
+        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ paymentId: payId, txid: tx })
+        }).then(() => {
+          recordDonation(amt, id);
+          btn.disabled = false;
+          btn.innerText = t('btn_done');
+          input.value = '';
+          document.getElementById('main-loader').style.display = 'none';
+          showMsg(t('msg_thanks'));
+          showDonationCelebration(amt, campTitle, id);
+        }),
+
+        onCancel: () => {
+          btn.disabled = false;
+          btn.innerText = t('btn_donate_now');
+          document.getElementById('main-loader').style.display = 'none';
+        },
+
+        onError: (e) => {
+          console.error(e);
+          btn.disabled = false;
+          btn.innerText = t('btn_donate_now');
+          document.getElementById('main-loader').style.display = 'none';
+          showMsg(t('msg_pay_error'));
+        }
+      });
+    }
+
+    function handleDonate(id){
+      if(!currentUser) return showMsg(t('msg_login_first'));
+
+      const btn = document.getElementById(`btn-${id}`);
+      const input = document.getElementById(`in-${id}`);
+      const amt = parseFloat(input.value);
+
+      if(!amt || amt <= 0) return showMsg(t('msg_valid_amount'));
+
+      btn.disabled = true;
+      btn.innerText = t('btn_connecting');
+      document.getElementById('main-loader').style.display = 'block';
+
+      const campTitle = (campaigns.find(c => c.id == id) || {}).title || '';
+
+      Pi.createPayment({
+        amount: amt,
+        memo: `${t('memo_prefix')}${campTitle}`,
+        metadata: { campaignId: id }
+      }, {
+        onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ paymentId: payId })
+        }),
+
+        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ paymentId: payId, txid: tx })
+        }).then(() => {
+          recordDonation(amt, id);
+          resetButton(btn, t('btn_done'));
+          showMsg(t('msg_thanks'));
+          showDonationCelebration(amt, campTitle, id);
+        }),
+
+        onCancel: () => resetButton(btn, t('btn_donate_now')),
+
+        onError: (e) => {
+          console.error(e);
+          resetButton(btn, t('btn_donate_now'));
+          showMsg(t('msg_pay_error'));
+        }
+      });
+    }
+
+    function resetButton(btn, text){
+      btn.disabled = false;
+      btn.innerText = text;
+      document.getElementById('main-loader').style.display = 'none';
+      if(text === t('btn_done')){
+        const inputId = btn.id.replace('btn-', 'in-');
+        document.getElementById(inputId).value = '';
+      }
+    }
+
+    window.onload = () => {
+      if(Pi && Pi.init){
+        Pi.init({ version:"2.0" });
+      }
+      applyLanguage();
+      loadData();
+    };
+  </script>
 </body>
 </html>
