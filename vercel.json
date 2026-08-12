@@ -13,5 +13,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/*.js": {
+      "includeFiles": "api/_backend.cjs"
+    }
+  }
 }

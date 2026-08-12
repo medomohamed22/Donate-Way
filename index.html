@@ -1855,6 +1855,8 @@
 
     let currentUser = null;
     let piAccessToken = null;
+    let piSdkAuthenticated = false;
+    const PI_PAYMENT_GRANTED_KEY = 'dw_pi_payments_granted_v1';
     let campaigns = [];
     let campaignSearch = "";
     let campaignStatusFilter = "all";
@@ -2229,6 +2231,7 @@
       const body = await syncRes.json().catch(()=>({}));
       if(!syncRes.ok) throw new Error(body.error || 'PI_BACKEND_VERIFY_FAILED');
       piAccessToken = auth.accessToken;
+      piSdkAuthenticated = true;
       currentUser = {
         uid: body?.user?.pi_uid || auth?.user?.uid,
         username: body?.user?.username || auth?.user?.username || 'Pi User'
@@ -2237,12 +2240,30 @@
     }
 
     async function ensurePaymentPermission(){
-      // Re-auth periodically so payment approval/completion never relies on an old access token.
-      if(piAccessToken && currentUser && paymentPermissionReadyAt && (Date.now()-paymentPermissionReadyAt)<10*60*1000) return true;
+      if(piSdkAuthenticated && piAccessToken && currentUser && localStorage.getItem(PI_PAYMENT_GRANTED_KEY)==='1') return true;
       const auth = await piAuthWithTimeout(['username','payments']);
       await syncVerifiedPiUser(auth);
       paymentPermissionReadyAt = Date.now();
+      localStorage.setItem(PI_PAYMENT_GRANTED_KEY,'1');
       return true;
+    }
+
+    async function restorePiSession(){
+      try{
+        const r=await fetch('/api/pi-user',{credentials:'same-origin'});
+        if(!r.ok)return false;
+        const body=await r.json();
+        if(!body?.user?.pi_uid)return false;
+        currentUser={uid:body.user.pi_uid,username:body.user.username||'Pi User'};
+        const loginButton=document.getElementById('login-button');
+        if(loginButton)loginButton.style.display='none';
+        const pill=document.getElementById('user-pill');if(pill)pill.style.display='flex';
+        const name=document.getElementById('username-display');if(name)name.textContent=currentUser.username;
+        // Restore the Pi SDK context silently. Previously granted scopes should not be requested again.
+        const scopes=localStorage.getItem(PI_PAYMENT_GRANTED_KEY)==='1'?['username','payments']:['username'];
+        piAuthWithTimeout(scopes).then(auth=>{piAccessToken=auth?.accessToken||null;piSdkAuthenticated=!!piAccessToken;}).catch(()=>{});
+        return true;
+      }catch(e){return false}
     }
 
     const onIncompletePaymentFound = async (payment) => {
@@ -2560,45 +2581,21 @@
 
     async function loadData(){
       document.getElementById('main-loader').style.display = 'block';
-
-      const { data: camps } = await _supabase.from('campaigns').select('*').order('id');
-      if(camps){
-        campaigns = camps.filter(c => !['draft','suspended'].includes(c.status));
+      try{
+        const r=await fetch('/api/data',{headers:{'Accept':'application/json'}});
+        const body=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(body.error||'Could not load platform data');
+        campaigns=(body.campaigns||[]).filter(c=>!c.needs_review);
+        globalDonorStats=Array.isArray(body.donorStats)?body.donorStats:[];
         renderCamps();
-      }
-
-      const { data: dons } = await _supabase.from('donations').select('username, amount, campaign_id, is_anonymous');
-      if(dons){
-        // Recalculate each campaign's raised amount from verified donation rows.
-        // This keeps the UI accurate even if campaigns.current_amount is stale.
-        const raisedByCampaign = dons.reduce((acc, curr) => {
-          const key = String(curr.campaign_id ?? '');
-          if(key) acc[key] = (acc[key] || 0) + parseFloat(curr.amount || 0);
-          return acc;
-        }, {});
-        campaigns = campaigns.map(c => ({...c, current_amount: raisedByCampaign[String(c.id)] || 0}));
-        renderCamps();
-
-        const totals = dons.reduce((acc, curr) => {
-          const name = curr.is_anonymous ? 'anonymous' : (curr.username || 'pi-user');
-          acc[name] = (acc[name] || 0) + parseFloat(curr.amount || 0);
-          return acc;
-        }, {});
-        globalDonorStats = Object.entries(totals)
-          .map(([username, total]) => ({ username, total }))
-          .sort((a,b) => b.total - a.total);
-
         renderHeroes(globalDonorStats.slice(0,5));
-      }
-
-      updateHeroStats();
-      document.getElementById('main-loader').style.display = 'none';
-
-      const hashMatch = window.location.hash.match(/campaign-(\d+)/);
-      if(hashMatch){
-        const wanted = campaigns.find(c => String(c.id) === hashMatch[1]);
-        if(wanted) setTimeout(() => openCampaignDetails(wanted.id), 200);
-      }
+        updateHeroStats();
+      }catch(e){
+        console.error('Initial data load failed',e);
+        showMsg((currentLang==='ar'?'تعذر تحميل بيانات المنصة: ':'Could not load platform data: ')+String(e.message||e));
+      }finally{document.getElementById('main-loader').style.display='none';}
+      const hashMatch=window.location.hash.match(/campaign-(\d+)/);
+      if(hashMatch){const wanted=campaigns.find(c=>String(c.id)===hashMatch[1]);if(wanted)setTimeout(()=>openCampaignDetails(wanted.id),200);}
     }
 
     function renderCamps(){
@@ -3030,7 +3027,7 @@
     window.onload = () => {
       initPiSdk();
       applyLanguage();
-      loadData();
+      Promise.allSettled([loadData(), restorePiSession()]);
     };
   </script>
 </body>
