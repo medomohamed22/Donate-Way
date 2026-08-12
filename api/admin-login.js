@@ -7,7 +7,11 @@ module.exports=async function(req,res){res.setHeader('Cache-Control','private, n
     const row=await syncPiUser(user);
     if(!row||row.is_admin!==true)return res.status(403).json({error:'This Pi account is not an admin'});
     const maxAge=30*24*3600;
-    res.setHeader('Set-Cookie',cookie(makeAdminToken(row,maxAge),maxAge));
-    return res.status(200).json({session:{authenticated:true,expires_in:maxAge},user:{id:row.pi_uid,pi_uid:row.pi_uid,username:row.username,is_admin:true}});
+    const adminToken=makeAdminToken(row,maxAge);
+    res.setHeader('Set-Cookie',cookie(adminToken,maxAge));
+    // The HttpOnly cookie remains the primary session mechanism. The token is also returned
+    // as a same-origin fallback because some Pi Browser/WebView builds can reject or drop
+    // Set-Cookie between serverless requests. admin.html keeps it in sessionStorage only.
+    return res.status(200).json({session:{authenticated:true,expires_in:maxAge,token:adminToken},user:{id:row.pi_uid,pi_uid:row.pi_uid,username:row.username,is_admin:true}});
   }catch(e){return res.status(500).json({error:e.message||'Login failed'})}
 };
