@@ -2179,16 +2179,82 @@
       document.getElementById(`in-${campaignId}`).value = amount;
     }
 
-    const onIncompletePaymentFound = async (payment) => {
-      console.log("Incomplete payment found:", payment);
+    const PI_AUTH_TIMEOUT_MS = 25000;
+    let piSdkInitialized = false;
+    let paymentPermissionReadyAt = 0;
+
+    function initPiSdk(){
+      if(piSdkInitialized) return true;
+      if(!window.Pi || typeof window.Pi.init !== 'function') return false;
       try{
-        await fetch('/api/pi/complete', {
+        window.Pi.init({ version:'2.0' });
+        piSdkInitialized = true;
+        return true;
+      }catch(e){
+        console.error('Pi SDK init failed:', e);
+        return false;
+      }
+    }
+
+    function piAuthWithTimeout(scopes){
+      if(!initPiSdk() || typeof window.Pi.authenticate !== 'function'){
+        return Promise.reject(new Error('PI_SDK_UNAVAILABLE'));
+      }
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('PI_AUTH_TIMEOUT')), PI_AUTH_TIMEOUT_MS);
+      });
+      return Promise.race([
+        window.Pi.authenticate(scopes, onIncompletePaymentFound),
+        timeout
+      ]).finally(() => clearTimeout(timer));
+    }
+
+    async function syncVerifiedPiUser(auth){
+      if(!auth?.accessToken) throw new Error('PI_TOKEN_MISSING');
+      const syncRes = await fetch('/api/pi/user', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({accessToken:auth.accessToken})
+      });
+      const body = await syncRes.json().catch(()=>({}));
+      if(!syncRes.ok) throw new Error(body.error || 'PI_BACKEND_VERIFY_FAILED');
+      piAccessToken = auth.accessToken;
+      currentUser = {
+        uid: body?.user?.pi_uid || auth?.user?.uid,
+        username: body?.user?.username || auth?.user?.username || 'Pi User'
+      };
+      return currentUser;
+    }
+
+    async function ensurePaymentPermission(){
+      // Re-auth periodically so payment approval/completion never relies on an old access token.
+      if(piAccessToken && currentUser && paymentPermissionReadyAt && (Date.now()-paymentPermissionReadyAt)<10*60*1000) return true;
+      const auth = await piAuthWithTimeout(['username','payments']);
+      await syncVerifiedPiUser(auth);
+      paymentPermissionReadyAt = Date.now();
+      return true;
+    }
+
+    const onIncompletePaymentFound = async (payment) => {
+      console.log('Incomplete payment found:', payment);
+      try{
+        const txid = payment?.transaction?.txid;
+        if(!payment?.identifier || !txid){
+          console.warn('Incomplete Pi payment has no blockchain transaction yet; nothing to complete.');
+          return;
+        }
+        const r = await fetch('/api/pi/complete', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payment.identifier, txid: payment.transaction.txid, accessToken: piAccessToken })
+          body:JSON.stringify({ paymentId: payment.identifier, txid, accessToken: piAccessToken || null })
         });
+        if(!r.ok){
+          const body = await r.json().catch(()=>({}));
+          throw new Error(body.error || 'Could not complete pending Pi payment');
+        }
       }catch(e){
-        console.error("Error completing pending payment:", e);
+        console.error('Error completing pending payment:', e);
       }
     };
 
@@ -2736,20 +2802,26 @@
           loginButton.innerHTML = `<span class="login-spinner" aria-hidden="true"></span><span>${currentLang === 'ar' ? 'جاري تسجيل الدخول...' : 'Signing in...'}</span>`;
         }
 
-        const auth = await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
-        if(!auth?.user) throw new Error('Authentication did not return a user');
-        currentUser = auth.user;
-        piAccessToken = auth.accessToken || null;
-        if(piAccessToken){
-          const syncRes = await fetch('/api/pi/user', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:piAccessToken})});
-          if(!syncRes.ok){const b=await syncRes.json().catch(()=>({}));throw new Error(b.error||'Could not sync Pi user');}
-        }
+        // Login only asks for identity. Payment permission is requested only when the user donates.
+        // This keeps ordinary sign-in fast and avoids blocking login on the payments permission flow.
+        const auth = await piAuthWithTimeout(['username']);
+        await syncVerifiedPiUser(auth);
 
         if(loginButton) loginButton.style.display = 'none';
         document.getElementById('user-pill').style.display = 'flex';
         document.getElementById('username-display').textContent = currentUser.username;
       }catch(e){
-        showMsg(t('msg_use_pi_browser'));
+        console.error('Pi login failed:', e);
+        const code = String(e?.message || e || '');
+        if(code.includes('PI_AUTH_TIMEOUT')){
+          showMsg(currentLang === 'ar'
+            ? 'انتهت مهلة تسجيل الدخول من Pi. تأكد أن رابط الموقع مضبوط كـ App URL داخل Pi Developer Portal وأنك فتحته من Pi Browser، ثم حاول مرة أخرى.'
+            : 'Pi sign-in timed out. Verify this production URL is configured as the App URL in Pi Developer Portal, open it in Pi Browser, then try again.');
+        }else if(code.includes('PI_SDK_UNAVAILABLE')){
+          showMsg(currentLang === 'ar' ? 'تعذر تحميل Pi SDK. أعد تحميل الصفحة وتأكد من الاتصال.' : 'Pi SDK could not load. Refresh the page and check your connection.');
+        }else{
+          showMsg(currentLang === 'ar' ? 'تعذر تسجيل الدخول بحساب Pi. حاول مرة أخرى أو راجع إعدادات التطبيق في Pi Developer Portal.' : 'Pi sign-in failed. Try again or review the app configuration in Pi Developer Portal.');
+        }
       }finally{
         if(loginButton && !currentUser){
           loginButton.disabled = false;
@@ -2762,8 +2834,13 @@
 
     async function recordDonation(){ throw new Error('Direct donation recording is disabled; server completion is required.'); }
 
-    function handleDonateDetail(id){
+    async function handleDonateDetail(id){
       if(!currentUser) return showMsg(t('msg_login_first'));
+      try{ await ensurePaymentPermission(); }
+      catch(e){
+        console.error('Pi payment permission failed:', e);
+        return showMsg(currentLang === 'ar' ? 'تعذر تفعيل صلاحية الدفع من Pi. حاول مرة أخرى من Pi Browser.' : 'Could not enable Pi payment permission. Try again in Pi Browser.');
+      }
 
       const btn = document.getElementById(`detail-btn-${id}`);
       const input = document.getElementById(`detail-in-${id}`);
@@ -2785,7 +2862,7 @@
         onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId })
+          body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
         }),
 
         onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
@@ -2820,8 +2897,13 @@
       });
     }
 
-    function handleDonate(id){
+    async function handleDonate(id){
       if(!currentUser) return showMsg(t('msg_login_first'));
+      try{ await ensurePaymentPermission(); }
+      catch(e){
+        console.error('Pi payment permission failed:', e);
+        return showMsg(currentLang === 'ar' ? 'تعذر تفعيل صلاحية الدفع من Pi. حاول مرة أخرى من Pi Browser.' : 'Could not enable Pi payment permission. Try again in Pi Browser.');
+      }
 
       const btn = document.getElementById(`btn-${id}`);
       const input = document.getElementById(`in-${id}`);
@@ -2843,7 +2925,7 @@
         onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId })
+          body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
         }),
 
         onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
@@ -2933,9 +3015,7 @@
     setInterval(()=>{if(campaigns.some(c=>c.deadline))renderCamps()},60000);
 
     window.onload = () => {
-      if(Pi && Pi.init){
-        Pi.init({ version:"2.0" });
-      }
+      initPiSdk();
       applyLanguage();
       loadData();
     };
