@@ -2196,7 +2196,7 @@
     }
 
     async function loadGlobalStats(){
-      const { data: dons } = await _supabase.from('donations').select('username, amount');
+      const { data: dons } = await _supabase.from('donations').select('username, amount, campaign_id, is_anonymous');
       const { data: camps } = await _supabase.from('campaigns').select('id, current_amount, target_amount');
 
       let totalPi = 0;
@@ -2464,8 +2464,19 @@
 
       const { data: dons } = await _supabase.from('donations').select('username, amount');
       if(dons){
+        // Recalculate each campaign's raised amount from verified donation rows.
+        // This keeps the UI accurate even if campaigns.current_amount is stale.
+        const raisedByCampaign = dons.reduce((acc, curr) => {
+          const key = String(curr.campaign_id ?? '');
+          if(key) acc[key] = (acc[key] || 0) + parseFloat(curr.amount || 0);
+          return acc;
+        }, {});
+        campaigns = campaigns.map(c => ({...c, current_amount: raisedByCampaign[String(c.id)] || 0}));
+        renderCamps();
+
         const totals = dons.reduce((acc, curr) => {
-          acc[curr.username] = (acc[curr.username] || 0) + parseFloat(curr.amount || 0);
+          const name = curr.is_anonymous ? 'anonymous' : (curr.username || 'pi-user');
+          acc[name] = (acc[name] || 0) + parseFloat(curr.amount || 0);
           return acc;
         }, {});
         globalDonorStats = Object.entries(totals)
