@@ -2212,11 +2212,20 @@
 
     async function syncVerifiedPiUser(auth){
       if(!auth?.accessToken) throw new Error('PI_TOKEN_MISSING');
-      const syncRes = await fetch('/api/pi/user', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({accessToken:auth.accessToken})
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      let syncRes;
+      try{
+        syncRes = await fetch('/api/pi/user', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({accessToken:auth.accessToken}),
+          signal:controller.signal
+        });
+      }catch(e){
+        if(e?.name === 'AbortError') throw new Error('PI_USER_SYNC_TIMEOUT');
+        throw e;
+      }finally{ clearTimeout(timer); }
       const body = await syncRes.json().catch(()=>({}));
       if(!syncRes.ok) throw new Error(body.error || 'PI_BACKEND_VERIFY_FAILED');
       piAccessToken = auth.accessToken;
@@ -2819,8 +2828,12 @@
             : 'Pi sign-in timed out. Verify this production URL is configured as the App URL in Pi Developer Portal, open it in Pi Browser, then try again.');
         }else if(code.includes('PI_SDK_UNAVAILABLE')){
           showMsg(currentLang === 'ar' ? 'تعذر تحميل Pi SDK. أعد تحميل الصفحة وتأكد من الاتصال.' : 'Pi SDK could not load. Refresh the page and check your connection.');
+        }else if(code.includes('PI_USER_SYNC_TIMEOUT')){
+          showMsg(currentLang === 'ar' ? 'تم تسجيل الدخول في Pi لكن خادم المستخدمين لم يرد. راجع جدول pi_users ومتغيرات Supabase في Vercel.' : 'Pi authenticated, but the user backend timed out. Check pi_users and Supabase environment variables.');
+        }else if(code.includes('pi_users') || code.includes('Could not register Pi user') || code.includes('Could not update Pi user')){
+          showMsg((currentLang === 'ar' ? 'Pi نجح، لكن جدول المستخدمين يحتاج إصلاح: ' : 'Pi succeeded, but the users table needs attention: ') + code.slice(0,180));
         }else{
-          showMsg(currentLang === 'ar' ? 'تعذر تسجيل الدخول بحساب Pi. حاول مرة أخرى أو راجع إعدادات التطبيق في Pi Developer Portal.' : 'Pi sign-in failed. Try again or review the app configuration in Pi Developer Portal.');
+          showMsg((currentLang === 'ar' ? 'تعذر إكمال تسجيل الدخول: ' : 'Could not finish sign-in: ') + code.slice(0,180));
         }
       }finally{
         if(loginButton && !currentUser){
