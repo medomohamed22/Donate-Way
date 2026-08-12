@@ -1,4 +1,4 @@
-const {env,fetchWithTimeout}=require('../admin/_shared.cjs');
+const {env,fetchWithTimeout}=require('../../lib/backend.cjs');
 module.exports=async function(req,res){
   if(req.method!=='GET')return res.status(405).json({ok:false,error:'Method Not Allowed'});
   const out={ok:false,environment:false,pi_users:false};
