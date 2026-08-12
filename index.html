@@ -1824,6 +1824,7 @@
     <span id="lang-ball-label">AR</span>
   </button>
 
+  <script src="/certificate-pdf.js"></script>
   <script>
 
     // All database traffic goes through Vercel backend. No Supabase URL/key is exposed here.
@@ -2133,7 +2134,7 @@
     async function getCampaignDonors(campaignId){
       try{
         const { data } = await _supabase.from('donations')
-          .select('username, amount')
+          .select('username, amount, is_anonymous')
           .eq('campaign_id', campaignId)
           .order('id', { ascending:false })
           .limit(8);
@@ -2543,7 +2544,7 @@
               <div class="detail-donors-list">
                 ${donors.length ? donors.map(d => `
                   <div class="detail-donor-item">
-                    <span class="detail-donor-name">@${escapeHtml(d.username || 'user')}</span>
+                    <span class="detail-donor-name">${d.is_anonymous ? (currentLang==='ar'?'فاعل خير':'Anonymous') : '@'+escapeHtml(d.username || 'user')}</span>
                     <span class="detail-donor-amount">${parseFloat(d.amount || 0).toFixed(2)} π</span>
                   </div>
                 `).join('') : `<div class="detail-empty">${t('details_no_donors')}</div>`}
@@ -2796,7 +2797,7 @@
       }
     }
 
-    function showDonationCelebration(amount, campaignTitle, campaignId){
+    function showDonationCelebration(amount, campaignTitle, campaignId, isAnonymous=false){
       const username = currentUser && currentUser.username ? currentUser.username : 'supporter';
       const cleanAmount = parseFloat(amount || 0).toFixed(2);
       const cleanCampaign = campaignTitle || 'Donate Way';
@@ -2811,9 +2812,9 @@
           .replace('{campaign}', cleanCampaign)
       };
 
-      document.getElementById('celebration-title').innerText = t('celebration_title').replace('{username}', '@' + username);
+      document.getElementById('celebration-title').innerText = t('celebration_title').replace('{username}', isAnonymous ? (currentLang==='ar'?'فاعل خير':'Anonymous donor') : '@' + username);
       document.getElementById('celebration-message').innerText = t('celebration_message');
-      document.getElementById('celebration-donor').innerText = '@' + username;
+      document.getElementById('celebration-donor').innerText = isAnonymous ? (currentLang==='ar'?'فاعل خير':'Anonymous') : '@' + username;
       document.getElementById('celebration-amount').innerText = cleanAmount + ' π';
       document.getElementById('celebration-campaign').innerText = cleanCampaign;
       document.getElementById('celebration-share-label').innerText = t('celebration_share_btn');
@@ -2911,18 +2912,19 @@
       document.getElementById('main-loader').style.display = 'block';
 
       const campTitle = (campaigns.find(c => c.id == id) || {}).title || '';
+      const isAnonymous = !!document.getElementById(`detail-anon-${id}`)?.checked;
 
       Pi.createPayment({
         amount: amt,
         memo: `${t('memo_prefix')}${campTitle}`,
-        metadata: { campaignId: id }
+        metadata: { campaignId: id, isAnonymous }
       }, {
         onReadyForServerApproval: (payId) => {
           postPiPaymentAction('/api/pi-approve',{paymentId:payId,accessToken:piAccessToken}).catch(e=>console.error('Pi approval failed:',e));
         },
 
         onReadyForServerCompletion: (payId, tx) => {
-          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous:!!document.getElementById(`detail-anon-${id}`)?.checked};
+          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous};
           postPiPaymentAction('/api/pi-complete',payload).catch(()=>postPiPaymentAction('/api/pi-complete',payload)).then(async (data) => {
             if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
             btn.disabled = false;
@@ -2930,8 +2932,8 @@
             input.value = '';
             document.getElementById('main-loader').style.display = 'none';
             showMsg(t('msg_thanks'));
-            showDonationCelebration(amt, campTitle, id);
-            afterDonationV3(id, amt);
+            showDonationCelebration(amt, campTitle, id, isAnonymous);
+            afterDonationV3(id, amt, isAnonymous);
           }).catch(e=>{console.error('Pi completion failed:',e);btn.disabled=false;btn.innerText=t('btn_donate_now');document.getElementById('main-loader').style.display='none';showMsg(t('msg_pay_error'));});
         },
 
@@ -2970,24 +2972,25 @@
       document.getElementById('main-loader').style.display = 'block';
 
       const campTitle = (campaigns.find(c => c.id == id) || {}).title || '';
+      const isAnonymous = !!document.getElementById(`anon-${id}`)?.checked;
 
       Pi.createPayment({
         amount: amt,
         memo: `${t('memo_prefix')}${campTitle}`,
-        metadata: { campaignId: id }
+        metadata: { campaignId: id, isAnonymous }
       }, {
         onReadyForServerApproval: (payId) => {
           postPiPaymentAction('/api/pi-approve',{paymentId:payId,accessToken:piAccessToken}).catch(e=>console.error('Pi approval failed:',e));
         },
 
         onReadyForServerCompletion: (payId, tx) => {
-          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous:!!document.getElementById(`anon-${id}`)?.checked};
+          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous};
           postPiPaymentAction('/api/pi-complete',payload).catch(()=>postPiPaymentAction('/api/pi-complete',payload)).then(async (data) => {
             if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
             resetButton(btn, t('btn_done'));
             showMsg(t('msg_thanks'));
-            showDonationCelebration(amt, campTitle, id);
-            afterDonationV3(id, amt);
+            showDonationCelebration(amt, campTitle, id, isAnonymous);
+            afterDonationV3(id, amt, isAnonymous);
           }).catch(e=>{console.error('Pi completion failed:',e);resetButton(btn,t('btn_donate_now'));showMsg(t('msg_pay_error'));});
         },
 
@@ -3034,9 +3037,9 @@
     async function fetchApprovedComments(campaignId){try{const {data,error}=await _supabase.from('campaign_comments').select('*').eq('campaign_id',campaignId).eq('status','approved').order('created_at',{ascending:false}).limit(20);return error?[]:(data||[])}catch(e){return []}}
     const _dwOpenDetails=openCampaignDetails;
     openCampaignDetails=async function(id){await _dwOpenDetails(id);const c=campaigns.find(x=>String(x.id)===String(id));if(!c)return;const host=document.getElementById('campaign-detail-content');if(!host)return;host.querySelector('#dw-v3-detail-addon')?.remove();const comments=await fetchApprovedComments(id);const add=document.createElement('div');add.id='dw-v3-detail-addon';const d=deadlineState(c);add.innerHTML=`<div class="v3-detail-section"><div class="v3-detail-head"><h3>${currentLang==='ar'?'الأهداف والأثر':'Impact milestones'}</h3><button class="follow-btn ${isFavorite(id)?'active':''}" onclick="toggleFavorite(${id},event)">${isFavorite(id)?'♥':'♡'} ${currentLang==='ar'?(isFavorite(id)?'متابَع':'متابعة الحملة'):(isFavorite(id)?'Following':'Follow')}</button>${currentUser?`<button class="follow-btn" onclick="printDonationCertificate(${id})">★ ${currentLang==='ar'?'الشهادة':'Certificate'}</button>`:''}</div>${d?`<div class="countdown-card"><strong>${isUrgent(c)?'🚨 ':''}${currentLang==='ar'?'موعد انتهاء الحملة':'Campaign deadline'}</strong><span>${formatCountdown(c)}</span></div>`:''}${milestoneHtml(c)||`<div class="detail-empty">${currentLang==='ar'?'لم تتم إضافة مراحل أثر بعد.':'No impact milestones yet.'}</div>`}</div><div class="v3-detail-section"><div class="v3-detail-head"><h3>${currentLang==='ar'?'رسائل الداعمين':'Support messages'}</h3>${currentUser?`<button class="follow-btn" onclick="openSupportPrompt(${id})">+ ${currentLang==='ar'?'أضف رسالة':'Add message'}</button>`:''}</div><div class="support-list">${comments.length?comments.map(x=>`<div class="support-msg"><div class="support-msg-head"><b>${x.is_anonymous?(currentLang==='ar'?'فاعل خير':'Anonymous'):'@'+escapeHtml(x.username||'supporter')}</b><span>${(+x.amount||0).toFixed(2)} π</span></div><p>${escapeHtml(x.message||'')}</p></div>`).join(''):`<div class="detail-empty">${currentLang==='ar'?'لا توجد رسائل منشورة بعد.':'No published messages yet.'}</div>`}</div></div>`;host.appendChild(add);};
-    function openSupportPrompt(campaignId,amount=null){if(!currentUser)return showMsg(t('msg_login_first'));dwLastDonationContext={campaignId,amount};document.getElementById('support-title').textContent=currentLang==='ar'?'اترك رسالة دعم':'Leave a support message';document.getElementById('support-help').textContent=currentLang==='ar'?'اكتب رسالة قصيرة تظهر بعد مراجعة الإدارة. لا تضع بيانات شخصية.':'Write a short message. It will appear after admin approval; avoid personal information.';document.getElementById('support-message').placeholder=currentLang==='ar'?'رسالة تشجيع حتى 280 حرفًا...':'A short message of support...';document.getElementById('support-submit').textContent=currentLang==='ar'?'إرسال للمراجعة':'Send for review';document.getElementById('support-skip').textContent=currentLang==='ar'?'ليس الآن':'Not now';document.getElementById('support-modal').classList.add('open')}
+    function openSupportPrompt(campaignId,amount=null,isAnonymous=false){if(!currentUser)return showMsg(t('msg_login_first'));dwLastDonationContext={campaignId,amount,isAnonymous:!!isAnonymous};document.getElementById('support-title').textContent=currentLang==='ar'?'اترك رسالة دعم':'Leave a support message';document.getElementById('support-help').textContent=currentLang==='ar'?'اكتب رسالة قصيرة تظهر بعد مراجعة الإدارة. لا تضع بيانات شخصية.':'Write a short message. It will appear after admin approval; avoid personal information.';document.getElementById('support-message').placeholder=currentLang==='ar'?'رسالة تشجيع حتى 280 حرفًا...':'A short message of support...';document.getElementById('support-submit').textContent=currentLang==='ar'?'إرسال للمراجعة':'Send for review';document.getElementById('support-skip').textContent=currentLang==='ar'?'ليس الآن':'Not now';document.getElementById('support-modal').classList.add('open')}
     function closeSupportPrompt(){document.getElementById('support-modal').classList.remove('open');document.getElementById('support-message').value=''}
-    async function submitSupportMessage(){const ctx=dwLastDonationContext,msg=document.getElementById('support-message').value.trim();if(!ctx||!msg)return;let amount=ctx.amount;if(!amount){try{const {data}=await _supabase.from('donations').select('amount').eq('username',currentUser.username).eq('campaign_id',ctx.campaignId).order('id',{ascending:false}).limit(1);amount=data?.[0]?.amount||0}catch(e){}}if(!amount)return showMsg(currentLang==='ar'?'الرسائل متاحة للمتبرعين في الحملة.':'Support messages are available to donors.');const payload={campaign_id:ctx.campaignId,pi_user_id:currentUser.uid,username:currentUser.username,amount:+amount||0,message:msg,status:'pending',is_anonymous:false};const {error}=await _supabase.from('campaign_comments').insert([payload]);if(error)return showMsg(currentLang==='ar'?'فعّل تحديث قاعدة البيانات V3 أولًا.':'Run the V3 database migration first.');closeSupportPrompt();showMsg(currentLang==='ar'?'تم إرسال رسالتك للمراجعة.':'Your message was sent for review.')}
+    async function submitSupportMessage(){const ctx=dwLastDonationContext,msg=document.getElementById('support-message').value.trim();if(!ctx||!msg)return;let amount=ctx.amount;if(!amount){try{const {data}=await _supabase.from('donations').select('amount').eq('username',currentUser.username).eq('campaign_id',ctx.campaignId).order('id',{ascending:false}).limit(1);amount=data?.[0]?.amount||0}catch(e){}}if(!amount)return showMsg(currentLang==='ar'?'الرسائل متاحة للمتبرعين في الحملة.':'Support messages are available to donors.');const payload={campaign_id:ctx.campaignId,pi_user_id:currentUser.uid,username:currentUser.username,amount:+amount||0,message:msg,status:'pending',is_anonymous:!!ctx.isAnonymous};const {error}=await _supabase.from('campaign_comments').insert([payload]);if(error)return showMsg(currentLang==='ar'?'فعّل تحديث قاعدة البيانات V3 أولًا.':'Run the V3 database migration first.');closeSupportPrompt();showMsg(currentLang==='ar'?'تم إرسال رسالتك للمراجعة.':'Your message was sent for review.')}
     function notificationReadIds(){return new Set(dwStore.get('dw_notif_read_'+dwUserKey(),[]))}
     function makeNotif(id,type,title,body,campaignId,time){return {id:String(id),type,title,body,campaignId,time:time||new Date().toISOString()}}
     async function buildNotifications(){if(!currentUser){dwNotificationItems=[];renderNotifications();return}let supported=[];try{const {data}=await _supabase.from('donations').select('campaign_id').eq('username',currentUser.username);supported=(data||[]).map(x=>String(x.campaign_id))}catch(e){}const interest=new Set([...supported,...dwFavorites()]);let items=[];for(const c of campaigns.filter(x=>interest.has(String(x.id)))){const pct=(+c.current_amount||0)/(+c.target_amount||1)*100;if(pct>=100)items.push(makeNotif(`100-${c.id}`,'goal',currentLang==='ar'?'اكتملت الحملة 🎉':'Campaign funded 🎉',c.title,c.id,c.updated_at));else if(pct>=50)items.push(makeNotif(`50-${c.id}`,'goal',currentLang==='ar'?'الحملة وصلت 50%':'Campaign reached 50%',c.title,c.id,c.updated_at));if(c.result_image_url)items.push(makeNotif(`impact-${c.id}`,'impact',currentLang==='ar'?'أثر الحملة متاح':'Campaign impact is available',c.title,c.id,c.updated_at));if(campaignStatus(c)==='completed')items.push(makeNotif(`executed-${c.id}`,'impact',currentLang==='ar'?'تم تنفيذ الحملة ✓':'Campaign execution completed ✓',c.title,c.id,c.updated_at));if(certificateAvailable(c,supported))items.push(makeNotif(`cert-${c.id}`,'cert',currentLang==='ar'?'شهادة التبرع متاحة':'Donation certificate available',c.title,c.id,c.updated_at));const d=deadlineState(c);if(d&&!d.expired&&d.ms<24*3600000)items.push(makeNotif(`deadline-${c.id}-${new Date(c.deadline).toISOString().slice(0,10)}`,'urgent',currentLang==='ar'?'الحملة تقترب من موعدها':'Campaign deadline is near',`${c.title} — ${formatCountdown(c)}`,c.id,c.deadline))}try{const ids=[...interest].map(Number).filter(Boolean);if(ids.length){const {data}=await _supabase.from('campaign_updates').select('*').in('campaign_id',ids).order('created_at',{ascending:false}).limit(40);for(const u of data||[])items.push(makeNotif(`update-${u.id}`,'update',currentLang==='ar'?'تحديث جديد للحملة':'New campaign update',u.title,u.campaign_id,u.created_at))}}catch(e){}dwNotificationItems=items.sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));renderNotifications();}
@@ -3048,7 +3051,41 @@
     document.addEventListener('click',()=>document.getElementById('notifications-panel')?.classList.remove('open'));
     async function openTransparency(){document.getElementById('transparency-modal').classList.add('open');document.getElementById('transparency-title').textContent=currentLang==='ar'?'مركز الشفافية':'Transparency Center';const el=document.getElementById('transparency-content');el.innerHTML='<div class="detail-empty">Loading...</div>';let dons=[];try{const {data}=await _supabase.from('donations').select('*');dons=data||[]}catch(e){}const total=dons.reduce((a,d)=>a+(+d.amount||0),0),completed=campaigns.filter(c=>campaignStatus(c)==='completed').length,executed=campaigns.filter(c=>c.result_image_url||campaignStatus(c)==='completed').length,success=campaigns.length?Math.round((campaigns.filter(c=>['funded','in_progress','completed'].includes(campaignStatus(c))).length/campaigns.length)*100):0;const months={};dons.forEach(d=>{const dt=new Date(d.created_at||Date.now()),k=dt.toLocaleDateString(currentLang==='ar'?'ar-EG':'en-US',{year:'numeric',month:'short'});months[k]=(months[k]||0)+(+d.amount||0)});const vals=Object.entries(months).slice(-6),mx=Math.max(1,...vals.map(x=>x[1]));const evidence=campaigns.filter(c=>c.result_image_url).slice(0,9);el.innerHTML=`<div class="transparency-grid"><div class="trans-stat"><strong>${total.toFixed(2)} π</strong><span>${currentLang==='ar'?'إجمالي التبرعات':'Total raised'}</span></div><div class="trans-stat"><strong>${executed}</strong><span>${currentLang==='ar'?'حملات لها إثبات أثر':'Campaigns with impact evidence'}</span></div><div class="trans-stat"><strong>${completed}</strong><span>${currentLang==='ar'?'حملات مكتملة':'Completed campaigns'}</span></div><div class="trans-stat"><strong>${success}%</strong><span>${currentLang==='ar'?'نسبة الوصول للتمويل/التنفيذ':'Funding / execution rate'}</span></div></div><h3 style="margin:20px 0 8px">${currentLang==='ar'?'التقرير الشهري':'Monthly report'}</h3><div class="monthly-bars">${vals.length?vals.map(([m,v])=>`<div class="month-row"><span>${escapeHtml(m)}</span><div class="month-track"><div class="month-fill" style="width:${v/mx*100}%"></div></div><b>${v.toFixed(1)} π</b></div>`).join(''):`<div class="detail-empty">—</div>`}</div><h3 style="margin:20px 0 8px">${currentLang==='ar'?'إثباتات التنفيذ والأثر':'Execution & impact evidence'}</h3><div class="evidence-grid">${evidence.length?evidence.map(c=>`<div class="evidence-card" onclick="openImage('${escapeHtml(c.result_image_url)}','${escapeHtml(c.title)}');closeTransparency()" style="cursor:pointer"><img src="${escapeHtml(c.result_image_url)}"><div>${escapeHtml(c.title)}</div></div>`).join(''):`<div class="detail-empty">${currentLang==='ar'?'سيتم نشر الإثباتات هنا عند اكتمال الحملات.':'Evidence will appear here as campaigns are completed.'}</div>`}</div>`}
     function closeTransparency(){document.getElementById('transparency-modal').classList.remove('open')}
-    async function printDonationCertificate(campaignId){if(!currentUser)return showMsg(t('msg_login_first'));let dons=[];try{const {data}=await _supabase.from('donations').select('*').eq('username',currentUser.username).eq('campaign_id',campaignId);dons=data||[]}catch(e){}if(!dons.length)return showMsg(currentLang==='ar'?'لا يوجد تبرع مسجل لك في هذه الحملة.':'No recorded donation found for this campaign.');const c=campaigns.find(x=>String(x.id)===String(campaignId)),total=dons.reduce((a,d)=>a+(+d.amount||0),0),date=new Date(dons[dons.length-1]?.created_at||Date.now()).toLocaleDateString(currentLang==='ar'?'ar-EG':'en-US');const w=window.open('','_blank','width=900,height=700');if(!w)return;const rtl=currentLang==='ar';w.document.write(`<!doctype html><html lang="${rtl?'ar':'en'}" dir="${rtl?'rtl':'ltr'}"><head><meta charset="utf-8"><title>Donate Way Certificate</title><style>body{font-family:Arial,sans-serif;background:#f6f4ff;padding:40px;color:#111827}.c{max-width:760px;margin:auto;background:white;border:10px solid #ede9fe;padding:48px;text-align:center;box-shadow:0 20px 60px #0001}.mark{font-size:42px}.brand{font-size:30px;font-weight:900;color:#6d28d9}.title{font-size:26px;margin:25px 0 10px}.name{font-size:28px;font-weight:900}.amount{font-size:34px;color:#6d28d9;font-weight:900;margin:16px}.meta{color:#64748b;line-height:1.8}.foot{margin-top:32px;border-top:1px solid #e5e7eb;padding-top:18px;color:#64748b;font-size:13px}@media print{body{background:white;padding:0}.c{box-shadow:none}}</style></head><body><div class="c"><div class="mark">💜</div><div class="brand">Donate Way</div><div class="title">${rtl?'شهادة تقدير للتبرع':'Donation Appreciation Certificate'}</div><div>${rtl?'تُمنح إلى':'Presented to'}</div><div class="name">@${escapeHtml(currentUser.username)}</div><div>${rtl?'تقديرًا للمساهمة في حملة':'for supporting the campaign'}</div><h2>${escapeHtml(c?.title||('Campaign #'+campaignId))}</h2><div class="amount">${total.toFixed(2)} π</div><div class="meta">${rtl?'تاريخ التبرع':'Donation date'}: ${date}<br>${rtl?'حالة الحملة':'Campaign status'}: ${escapeHtml(campaignStatusLabel(campaignStatus(c||{})))}</div><div class="foot">${rtl?'هذه شهادة تقدير رقمية من Donate Way وتعتمد على سجل التبرع داخل المنصة.':'This digital appreciation certificate is generated from the donation record on Donate Way.'}</div></div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+    async function printDonationCertificate(campaignId){
+      if(!currentUser) return showMsg(t('msg_login_first'));
+      if(!window.DonateWayCertificate) return showMsg('PDF certificate module is unavailable. Please refresh the page.');
+      let dons=[];
+      try{
+        const {data,error}=await _supabase.from('donations')
+          .select('id,payment_id,txid,username,amount,campaign_id,is_anonymous,created_at')
+          .eq('username',currentUser.username)
+          .eq('campaign_id',campaignId)
+          .order('id',{ascending:true});
+        if(error) throw new Error(error.message||'Could not load donation records');
+        dons=data||[];
+      }catch(e){
+        console.error('Certificate data error:',e);
+        return showMsg('Could not load the verified donation record for this certificate.');
+      }
+      if(!dons.length) return showMsg('No verified donation was found for this campaign.');
+      const c=campaigns.find(x=>String(x.id)===String(campaignId));
+      const total=dons.reduce((sum,d)=>sum+(Number(d.amount)||0),0);
+      const latest=dons[dons.length-1]||{};
+      const date=new Date(latest.created_at||Date.now()).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      const ref=String(latest.payment_id||latest.txid||latest.id||'record').replace(/[^a-zA-Z0-9]/g,'').toUpperCase();
+      const certificateId=`DW-${String(campaignId).padStart(4,'0')}-${String(latest.id||'0').padStart(6,'0')}-${ref.slice(-8)||'VERIFIED'}`;
+      window.DonateWayCertificate.downloadDonationCertificate({
+        donor: currentUser.username,
+        campaign: c?.title||`Campaign #${campaignId}`,
+        amount: total,
+        date,
+        certificateId,
+        transactionId: latest.txid||latest.payment_id||'Recorded by Donate Way',
+        isAnonymous: dons.every(d=>d.is_anonymous===true)
+      });
+      showMsg('Your PDF donation certificate has been generated.');
+    }
+
     function earnedBadges(userDons){const unique=new Set(userDons.map(d=>String(d.campaign_id))).size,total=userDons.reduce((a,d)=>a+(+d.amount||0),0),completedSupported=new Set(userDons.filter(d=>{const c=campaigns.find(x=>String(x.id)===String(d.campaign_id));return c&&['funded','completed'].includes(campaignStatus(c))}).map(d=>d.campaign_id)).size;const months=new Set(userDons.map(d=>new Date(d.created_at||Date.now()).toISOString().slice(0,7))).size;return [{icon:'🌱',en:'First Donation',ar:'أول تبرع',ok:userDons.length>=1},{icon:'🤝',en:'Supported 5 Campaigns',ar:'دعم 5 حملات',ok:unique>=5},{icon:'📅',en:'Monthly Supporter',ar:'داعم مستمر',ok:months>=2},{icon:'🏁',en:'Helped Complete a Campaign',ar:'ساهم في إكمال حملة',ok:completedSupported>=1},{icon:'💜',en:'Impact Supporter',ar:'داعم للأثر',ok:total>=50}]}
     const _dwOpenProfile=openProfile;
     openProfile=async function(){await _dwOpenProfile();if(!currentUser)return;let userDons=[];try{const {data}=await _supabase.from('donations').select('*').eq('username',currentUser.username).order('id',{ascending:false});userDons=data||[]}catch(e){}const hide=!!dwStore.get('dw_hide_badges_'+dwUserKey(),false),badges=earnedBadges(userDons),favs=dwFavorites().map(id=>campaigns.find(c=>String(c.id)===id)).filter(Boolean);const box=document.getElementById('profile-v3');if(box)box.innerHTML=`<h3 style="margin:0 0 9px;text-align:center">${currentLang==='ar'?'الإنجازات':'Achievements'}</h3><div class="badge-grid" style="${hide?'display:none':''}">${badges.map(b=>`<span class="achievement ${b.ok?'earned':''}">${b.icon} ${escapeHtml(currentLang==='ar'?b.ar:b.en)}</span>`).join('')}</div><label class="privacy-row"><span>${currentLang==='ar'?'إخفاء الإنجازات من ملفي':'Hide achievements from my profile'}</span><input type="checkbox" ${hide?'checked':''} onchange="toggleBadgePrivacy(this.checked)"></label><h3 style="margin:15px 0 8px;text-align:center">${currentLang==='ar'?'الحملات التي أتابعها':'Following'}</h3><div class="favorites-list">${favs.length?favs.map(c=>`<div class="favorite-row"><span>♥ ${escapeHtml(c.title)}</span><button onclick="closeProfile();openCampaignDetails(${c.id})">${currentLang==='ar'?'فتح':'Open'}</button></div>`).join(''):`<div class="detail-empty">${currentLang==='ar'?'لم تتابع أي حملة بعد.':'You are not following any campaigns yet.'}</div>`}</div>`}
@@ -3057,7 +3094,7 @@
     const _dwLogin=login;login=async function(){await _dwLogin();if(currentUser){const mount=document.getElementById('notif-mount'),root=document.getElementById('notifications-root');if(mount&&root){mount.appendChild(root);root.style.display='inline-flex'}await hydrateFollows();await buildNotifications();renderCamps()}}
     async function hydrateFollows(){if(!currentUser)return;try{const {data,error}=await _supabase.from('campaign_follows').select('campaign_id').eq('pi_user_id',currentUser.uid);if(!error&&data?.length)dwStore.set('dw_favorites_'+dwUserKey(),[...new Set([...dwFavorites(),...data.map(x=>String(x.campaign_id))])])}catch(e){}}
     const _dwLoadData=loadData;loadData=async function(){await _dwLoadData();campaigns=campaigns.filter(c=>!c.needs_review);injectUrgentFilter();if(currentUser){await hydrateFollows();await buildNotifications()}renderCamps()};
-    function afterDonationV3(id,amt){const c=campaigns.find(x=>String(x.id)===String(id));maybeCelebrateMilestones(+c?.current_amount||0,id,amt);setTimeout(()=>openSupportPrompt(id,amt),900);setTimeout(buildNotifications,1200)}
+    function afterDonationV3(id,amt,isAnonymous=false){const c=campaigns.find(x=>String(x.id)===String(id));maybeCelebrateMilestones(+c?.current_amount||0,id,amt);dwLastDonationContext={campaignId:id,amount:amt,isAnonymous:!!isAnonymous};setTimeout(()=>openSupportPrompt(id,amt,isAnonymous),900);setTimeout(buildNotifications,1200)}
 
     document.addEventListener('keydown', (event) => {
       if(event.key === 'Escape') closeDrawer();
