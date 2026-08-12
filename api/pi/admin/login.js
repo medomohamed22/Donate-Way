@@ -1,2 +1,13 @@
-const {env,cookie}=require('./_shared.cjs');
-module.exports=async function(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method Not Allowed'});try{const {email,password}=req.body||{};if(!email||!password)return res.status(400).json({error:'Missing credentials'});const {url,key}=env();const r=await fetch(`${url}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({email,password})});const data=await r.json().catch(()=>({}));if(!r.ok)return res.status(401).json({error:'Invalid login'});const allow=(process.env.ADMIN_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);if(allow.length&&!allow.includes(String(data.user?.email||'').toLowerCase()))return res.status(403).json({error:'Not authorized for admin'});res.setHeader('Set-Cookie',cookie(data.access_token,Math.max(60,Number(data.expires_in)||3600)));return res.status(200).json({session:{expires_in:data.expires_in},user:{email:data.user?.email,id:data.user?.id}})}catch(e){return res.status(500).json({error:e.message||'Login failed'})}};
+const {cookie,makeAdminToken,verifyPi,syncPiUser}=require('./_shared.cjs');
+module.exports=async function(req,res){
+  if(req.method!=='POST')return res.status(405).json({error:'Method Not Allowed'});
+  try{
+    const user=await verifyPi(req.body?.accessToken);
+    if(!user)return res.status(401).json({error:'Pi authentication failed'});
+    const row=await syncPiUser(user);
+    if(!row||row.is_admin!==true)return res.status(403).json({error:'This Pi account is not an admin'});
+    const maxAge=6*3600;
+    res.setHeader('Set-Cookie',cookie(makeAdminToken(row,maxAge),maxAge));
+    return res.status(200).json({session:{authenticated:true,expires_in:maxAge},user:{id:row.pi_uid,pi_uid:row.pi_uid,username:row.username,is_admin:true}});
+  }catch(e){return res.status(500).json({error:e.message||'Login failed'})}
+};
