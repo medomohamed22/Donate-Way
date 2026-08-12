@@ -1,5 +1,5 @@
 const {cookie,makeAdminToken,verifyPi,syncPiUser}=require('./_backend.cjs');
-module.exports=async function(req,res){
+module.exports=async function(req,res){res.setHeader('Cache-Control','private, no-store, max-age=0');res.setHeader('Vary','Cookie');
   if(req.method!=='POST')return res.status(405).json({error:'Method Not Allowed'});
   try{
     const user=await verifyPi(req.body?.accessToken);
