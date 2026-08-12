@@ -75,8 +75,24 @@ async function latestDonation(user,campaignId){
 }
 
 module.exports = async function handler(req,res){
-  if(req.method!=='POST') return res.status(405).json({error:'Method Not Allowed'});
   try{
+    if(req.method==='GET'){
+      const campsQ={columns:'*',filters:[],orders:[{column:'id',ascending:true}],limit:null,single:false};
+      const donsQ={columns:'username,amount,campaign_id,is_anonymous',filters:[],orders:[],limit:null,single:false};
+      const [allCamps,dons]=await Promise.all([restSelect('campaigns',campsQ),restSelect('donations',donsQ)]);
+      const raised={}; const donors={}; let total=0;
+      for(const d of Array.isArray(dons)?dons:[]){
+        const amount=Number(d.amount)||0; total+=amount;
+        const k=String(d.campaign_id??''); if(k)raised[k]=(raised[k]||0)+amount;
+        const name=d.is_anonymous?'anonymous':String(d.username||'pi-user'); donors[name]=(donors[name]||0)+amount;
+      }
+      const campaigns=(Array.isArray(allCamps)?allCamps:[]).filter(c=>!['draft','suspended'].includes(String(c.status||'active'))).map(c=>({...c,current_amount:raised[String(c.id)]||0}));
+      const donorStats=Object.entries(donors).map(([username,total])=>({username,total})).sort((a,b)=>b.total-a.total);
+      const targetTotal=campaigns.reduce((a,c)=>a+(Number(c.target_amount)||0),0);
+      res.setHeader('Cache-Control','public, s-maxage=10, stale-while-revalidate=30');
+      return res.status(200).json({campaigns,donorStats,stats:{totalDonated:total,donationCount:Array.isArray(dons)?dons.length:0,targetTotal}});
+    }
+    if(req.method!=='POST') return res.status(405).json({error:'Method Not Allowed'});
     const q=req.body||{}; const table=q.table;
     if(!ALLOWED_TABLES.has(table)) return res.status(403).json({error:'Table is not available'});
     const user=await verifyPi(q.accessToken);
