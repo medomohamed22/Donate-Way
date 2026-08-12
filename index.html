@@ -2177,8 +2177,37 @@
       renderCamps();
     }
 
+    function toEnglishDigits(value=''){
+      return String(value)
+        .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/٫/g, '.').replace(/٬/g, '');
+    }
+
+    function normalizeAmountValue(value=''){
+      let v=toEnglishDigits(value).replace(/,/g,'.').replace(/[^0-9.]/g,'');
+      const dot=v.indexOf('.');
+      if(dot!==-1) v=v.slice(0,dot+1)+v.slice(dot+1).replace(/\./g,'');
+      const [whole='',fraction='']=v.split('.');
+      const cleanWhole=whole.replace(/^0+(?=\d)/,'') || (v.startsWith('.')?'0':whole);
+      return dot===-1?cleanWhole:`${cleanWhole}.${fraction.slice(0,8)}`;
+    }
+
+    function normalizeAmountInput(input){
+      if(!input)return;
+      const next=normalizeAmountValue(input.value);
+      if(input.value!==next)input.value=next;
+    }
+
+    function getDonationAmount(input){
+      normalizeAmountInput(input);
+      const n=Number(input?.value);
+      return Number.isFinite(n)?n:0;
+    }
+
     function setQuickAmount(campaignId, amount){
-      document.getElementById(`in-${campaignId}`).value = amount;
+      const input=document.getElementById(`in-${campaignId}`);
+      if(input)input.value=String(Number(amount));
     }
 
     const PI_AUTH_TIMEOUT_MS = 25000;
@@ -2220,6 +2249,8 @@
       try{
         syncRes = await fetch('/api/pi-user', {
           method:'POST',
+          credentials:'include',
+          cache:'no-store',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({accessToken:auth.accessToken}),
           signal:controller.signal
@@ -2236,11 +2267,14 @@
         uid: body?.user?.pi_uid || auth?.user?.uid,
         username: body?.user?.username || auth?.user?.username || 'Pi User'
       };
+      await flushIncompletePayments();
       return currentUser;
     }
 
     async function ensurePaymentPermission(){
-      if(piSdkAuthenticated && piAccessToken && currentUser && localStorage.getItem(PI_PAYMENT_GRANTED_KEY)==='1') return true;
+      // A previous localStorage flag is not proof that the CURRENT access token has the payments scope.
+      // Require a payments-scoped authenticate at least once for this page/session.
+      if(piSdkAuthenticated && piAccessToken && currentUser && paymentPermissionReadyAt>0) return true;
       const auth = await piAuthWithTimeout(['username','payments']);
       await syncVerifiedPiUser(auth);
       paymentPermissionReadyAt = Date.now();
@@ -2250,7 +2284,7 @@
 
     async function restorePiSession(){
       try{
-        const r=await fetch('/api/pi-user',{credentials:'same-origin'});
+        const r=await fetch('/api/pi-user',{credentials:'include',cache:'no-store'});
         if(!r.ok)return false;
         const body=await r.json();
         if(!body?.user?.pi_uid)return false;
@@ -2261,31 +2295,45 @@
         const name=document.getElementById('username-display');if(name)name.textContent=currentUser.username;
         // Restore the Pi SDK context silently. Previously granted scopes should not be requested again.
         const scopes=localStorage.getItem(PI_PAYMENT_GRANTED_KEY)==='1'?['username','payments']:['username'];
-        piAuthWithTimeout(scopes).then(auth=>{piAccessToken=auth?.accessToken||null;piSdkAuthenticated=!!piAccessToken;}).catch(()=>{});
+        piAuthWithTimeout(scopes).then(async auth=>{piAccessToken=auth?.accessToken||null;piSdkAuthenticated=!!piAccessToken;if(piAccessToken&&scopes.includes('payments'))paymentPermissionReadyAt=Date.now();if(piAccessToken)await flushIncompletePayments();}).catch(()=>{});
         return true;
       }catch(e){return false}
     }
 
-    const onIncompletePaymentFound = async (payment) => {
-      console.log('Incomplete payment found:', payment);
-      try{
-        const txid = payment?.transaction?.txid;
-        if(!payment?.identifier || !txid){
-          console.warn('Incomplete Pi payment has no blockchain transaction yet; nothing to complete.');
-          return;
+    let pendingIncompletePayments = [];
+
+    async function postPiPaymentAction(url,payload){
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},cache:'no-store',body:JSON.stringify(payload)});
+      const body=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(body?.error||body?.message||`Payment server error (${r.status})`);
+      return body;
+    }
+
+    async function completeIncompletePayment(payment){
+      const txid=payment?.transaction?.txid;
+      if(!payment?.identifier||!txid||!piAccessToken)return false;
+      await postPiPaymentAction('/api/pi-complete',{paymentId:payment.identifier,txid,accessToken:piAccessToken,isAnonymous:false});
+      return true;
+    }
+
+    async function flushIncompletePayments(){
+      if(!piAccessToken||!pendingIncompletePayments.length)return;
+      const pending=[...pendingIncompletePayments];
+      pendingIncompletePayments=[];
+      for(const payment of pending){
+        try{await completeIncompletePayment(payment)}catch(e){
+          console.error('Error completing pending payment:',e);
+          pendingIncompletePayments.push(payment);
         }
-        const r = await fetch('/api/pi-complete', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payment.identifier, txid, accessToken: piAccessToken || null })
-        });
-        if(!r.ok){
-          const body = await r.json().catch(()=>({}));
-          throw new Error(body.error || 'Could not complete pending Pi payment');
-        }
-      }catch(e){
-        console.error('Error completing pending payment:', e);
       }
+    }
+
+    const onIncompletePaymentFound = (payment) => {
+      console.log('Incomplete payment found:', payment);
+      if(!payment?.identifier)return;
+      const i=pendingIncompletePayments.findIndex(x=>x?.identifier===payment.identifier);
+      if(i>=0)pendingIncompletePayments[i]=payment;else pendingIncompletePayments.push(payment);
+      if(piAccessToken)flushIncompletePayments().catch(console.error);
     };
 
     function closeDrawer(){
@@ -2481,7 +2529,7 @@
                 <button class="quick-btn" onclick="setDetailAmount(${id}, 5)">5 π</button>
                 <button class="quick-btn" onclick="setDetailAmount(${id}, 10)">10 π</button>
               </div>
-              <input type="number" min="0" step="0.01" id="detail-in-${id}" class="detail-amount-input" placeholder="${t('placeholder_amount')}">
+              <input type="text" inputmode="decimal" lang="en" dir="ltr" autocomplete="off" id="detail-in-${id}" class="detail-amount-input" placeholder="${t('placeholder_amount')}" oninput="normalizeAmountInput(this)">
               <div class="detail-actions">
                 <button id="detail-btn-${id}" class="donate-btn" onclick="handleDonateDetail(${id})">${ICONS.donate}<span>${t('btn_donate_now')}</span></button>
                 <button class="share-btn" onclick="shareCampaign(${id}, '${safeTitle}')">${ICONS.share}<span>${t('btn_share')}</span></button>
@@ -2516,7 +2564,7 @@
 
     function setDetailAmount(campaignId, amount){
       const input = document.getElementById(`detail-in-${campaignId}`);
-      if(input) input.value = amount;
+      if(input) input.value = String(Number(amount));
     }
 
     function openImage(url, title){
@@ -2663,7 +2711,7 @@
               <button class="quick-btn" onclick="setQuickAmount(${c.id}, 10)">10 π</button>
             </div>
 
-            <input type="number" min="0" step="0.01" id="in-${c.id}" class="amount-input" placeholder="${t('placeholder_amount')}">
+            <input type="text" inputmode="decimal" lang="en" dir="ltr" autocomplete="off" id="in-${c.id}" class="amount-input" placeholder="${t('placeholder_amount')}" oninput="normalizeAmountInput(this)">
 
             <div class="btn-group">
               <button id="btn-${c.id}" class="donate-btn" onclick="handleDonate(${c.id})">${ICONS.donate}<span>${t('btn_donate_now')}</span></button>
@@ -2854,7 +2902,7 @@
 
       const btn = document.getElementById(`detail-btn-${id}`);
       const input = document.getElementById(`detail-in-${id}`);
-      const amt = parseFloat(input.value);
+      const amt = getDonationAmount(input);
 
       if(!amt || amt <= 0) return showMsg(t('msg_valid_amount'));
 
@@ -2869,27 +2917,23 @@
         memo: `${t('memo_prefix')}${campTitle}`,
         metadata: { campaignId: id }
       }, {
-        onReadyForServerApproval: (payId) => fetch('/api/pi-approve', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
-        }),
+        onReadyForServerApproval: (payId) => {
+          postPiPaymentAction('/api/pi-approve',{paymentId:payId,accessToken:piAccessToken}).catch(e=>console.error('Pi approval failed:',e));
+        },
 
-        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi-complete', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId, txid: tx, accessToken: piAccessToken, isAnonymous: !!document.getElementById(`detail-anon-${id}`)?.checked })
-        }).then(r => r.json().then(data => ({ok:r.ok,data}))).then(async ({ok,data}) => {
-          if(!ok) throw new Error(data?.error || 'Payment completion failed');
-          if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
-          btn.disabled = false;
-          btn.innerText = t('btn_done');
-          input.value = '';
-          document.getElementById('main-loader').style.display = 'none';
-          showMsg(t('msg_thanks'));
-          showDonationCelebration(amt, campTitle, id);
-          afterDonationV3(id, amt);
-        }),
+        onReadyForServerCompletion: (payId, tx) => {
+          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous:!!document.getElementById(`detail-anon-${id}`)?.checked};
+          postPiPaymentAction('/api/pi-complete',payload).catch(()=>postPiPaymentAction('/api/pi-complete',payload)).then(async (data) => {
+            if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
+            btn.disabled = false;
+            btn.innerText = t('btn_done');
+            input.value = '';
+            document.getElementById('main-loader').style.display = 'none';
+            showMsg(t('msg_thanks'));
+            showDonationCelebration(amt, campTitle, id);
+            afterDonationV3(id, amt);
+          }).catch(e=>{console.error('Pi completion failed:',e);btn.disabled=false;btn.innerText=t('btn_donate_now');document.getElementById('main-loader').style.display='none';showMsg(t('msg_pay_error'));});
+        },
 
         onCancel: () => {
           btn.disabled = false;
@@ -2917,7 +2961,7 @@
 
       const btn = document.getElementById(`btn-${id}`);
       const input = document.getElementById(`in-${id}`);
-      const amt = parseFloat(input.value);
+      const amt = getDonationAmount(input);
 
       if(!amt || amt <= 0) return showMsg(t('msg_valid_amount'));
 
@@ -2932,24 +2976,20 @@
         memo: `${t('memo_prefix')}${campTitle}`,
         metadata: { campaignId: id }
       }, {
-        onReadyForServerApproval: (payId) => fetch('/api/pi-approve', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
-        }),
+        onReadyForServerApproval: (payId) => {
+          postPiPaymentAction('/api/pi-approve',{paymentId:payId,accessToken:piAccessToken}).catch(e=>console.error('Pi approval failed:',e));
+        },
 
-        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi-complete', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ paymentId: payId, txid: tx, accessToken: piAccessToken, isAnonymous: !!document.getElementById(`anon-${id}`)?.checked })
-        }).then(r => r.json().then(data => ({ok:r.ok,data}))).then(async ({ok,data}) => {
-          if(!ok) throw new Error(data?.error || 'Payment completion failed');
-          if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
-          resetButton(btn, t('btn_done'));
-          showMsg(t('msg_thanks'));
-          showDonationCelebration(amt, campTitle, id);
-          afterDonationV3(id, amt);
-        }),
+        onReadyForServerCompletion: (payId, tx) => {
+          const payload={paymentId:payId,txid:tx,accessToken:piAccessToken,isAnonymous:!!document.getElementById(`anon-${id}`)?.checked};
+          postPiPaymentAction('/api/pi-complete',payload).catch(()=>postPiPaymentAction('/api/pi-complete',payload)).then(async (data) => {
+            if(!data.recorded) throw new Error(data?.error || 'Donation was not recorded by the server');
+            resetButton(btn, t('btn_done'));
+            showMsg(t('msg_thanks'));
+            showDonationCelebration(amt, campTitle, id);
+            afterDonationV3(id, amt);
+          }).catch(e=>{console.error('Pi completion failed:',e);resetButton(btn,t('btn_donate_now'));showMsg(t('msg_pay_error'));});
+        },
 
         onCancel: () => resetButton(btn, t('btn_donate_now')),
 
