@@ -31,15 +31,33 @@ function buildQuery(table,q,forcedFilters=[]){
     const parts=q.orders.filter(o=>safeIdent(o.column)).map(o=>`${o.column}.${o.ascending===false?'desc':'asc'}`);
     if(parts.length) params.set('order',parts.join(','));
   }
-  if(Number.isFinite(Number(q.limit))) params.set('limit',String(Math.max(1,Math.min(500,Number(q.limit)))));
+  if(q.limit !== null && q.limit !== undefined && q.limit !== '' && Number.isFinite(Number(q.limit))) params.set('limit',String(Math.max(1,Math.min(5000,Number(q.limit)))));
   return `${url}/rest/v1/${table}?${params.toString()}`;
 }
 async function restSelect(table,q,forcedFilters=[]){
-  const r=await fetch(buildQuery(table,q,forcedFilters),{headers:headers()});
-  if(!r.ok) throw new Error(await r.text());
-  let data=await r.json();
-  if(q.single) data=Array.isArray(data)?(data[0]||null):data;
-  return data;
+  const explicitLimit = q.limit !== null && q.limit !== undefined && q.limit !== '' && Number.isFinite(Number(q.limit));
+  if(q.single || explicitLimit){
+    const r=await fetch(buildQuery(table,q,forcedFilters),{headers:headers()});
+    if(!r.ok) throw new Error(await r.text());
+    let data=await r.json();
+    if(q.single) data=Array.isArray(data)?(data[0]||null):data;
+    return data;
+  }
+
+  // No limit requested: page through PostgREST so the frontend gets the complete dataset,
+  // even when Supabase's API row cap is lower than the total number of records.
+  const pageSize=1000; const all=[]; let from=0;
+  while(true){
+    const r=await fetch(buildQuery(table,{...q,limit:null},forcedFilters),{headers:headers({Range:`${from}-${from+pageSize-1}`,'Range-Unit':'items'})});
+    if(!r.ok) throw new Error(await r.text());
+    const page=await r.json();
+    if(!Array.isArray(page)) return page;
+    all.push(...page);
+    if(page.length<pageSize) break;
+    from+=pageSize;
+    if(from>100000) throw new Error('Dataset is too large to load safely');
+  }
+  return all;
 }
 async function restWrite(table,q,method,forcedFilters=[]){
   let url=buildQuery(table,{...q,columns:'*'},forcedFilters);
