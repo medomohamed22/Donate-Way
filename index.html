@@ -657,6 +657,26 @@
       overflow-y:auto;
       transition:.45s cubic-bezier(.77,.2,.05,1);
     }
+    .drawer-close{
+      position:sticky;
+      top:0;
+      float:right;
+      z-index:3;
+      width:42px;
+      height:42px;
+      margin:-8px -8px 10px 10px;
+      border:1px solid #e2e8f0;
+      border-radius:14px;
+      background:rgba(255,255,255,.96);
+      color:var(--dark);
+      font-size:30px;
+      line-height:1;
+      font-weight:500;
+      cursor:pointer;
+      box-shadow:0 8px 22px rgba(15,23,42,.10);
+    }
+    .drawer-close:hover{background:#f5f3ff;color:var(--primary)}
+    html[dir="rtl"] .drawer-close{float:left;margin:-8px 10px 10px -8px}
     html[dir="rtl"] .side-drawer{right:auto;left:-100%;box-shadow:20px 0 60px rgba(15,23,42,.18)}
     .side-drawer.active{right:0}
     html[dir="rtl"] .side-drawer.active{right:auto;left:0}
@@ -1516,9 +1536,10 @@
 
 <body>
   <div id="custom-alert"></div>
-  <div id="drawer-overlay" class="drawer-overlay" onclick="toggleDrawer()"></div>
+  <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
   <div id="side-drawer" class="side-drawer">
+    <button class="drawer-close" type="button" onclick="closeDrawer()" aria-label="Close menu" title="Close">×</button>
     <h2 class="drawer-title">
       <span class="live-indicator"></span>
       <span data-i18n="drawer_stats_title">Platform stats</span>
@@ -2171,12 +2192,21 @@
       }
     };
 
+    function closeDrawer(){
+      const drawer = document.getElementById('side-drawer');
+      const overlay = document.getElementById('drawer-overlay');
+      if(drawer) drawer.classList.remove('active');
+      if(overlay) overlay.style.display = 'none';
+    }
+
     function toggleDrawer(){
       const drawer = document.getElementById('side-drawer');
       const overlay = document.getElementById('drawer-overlay');
-      drawer.classList.toggle('active');
-      overlay.style.display = drawer.classList.contains('active') ? 'block' : 'none';
-      if(drawer.classList.contains('active')) loadGlobalStats();
+      const willOpen = !drawer.classList.contains('active');
+      if(!willOpen){ closeDrawer(); return; }
+      drawer.classList.add('active');
+      overlay.style.display = 'block';
+      loadGlobalStats();
     }
 
     function updateHeroStats(){
@@ -2242,7 +2272,7 @@
 
       if(camps){
         document.getElementById('total-campaigns-stats').innerText = camps.length;
-        const currentTotal = camps.reduce((sum, c) => sum + parseFloat(c.current_amount || 0), 0);
+        const currentTotal = (dons || []).reduce((sum, d) => sum + parseFloat(d.amount || 0), 0);
         const targetTotal = camps.reduce((sum, c) => sum + parseFloat(c.target_amount || 0), 0);
         const progress = targetTotal > 0 ? Math.min((currentTotal / targetTotal) * 100, 100) : 0;
         document.getElementById('stats-progress-text').innerText = progress.toFixed(0) + '%';
@@ -2462,7 +2492,7 @@
         renderCamps();
       }
 
-      const { data: dons } = await _supabase.from('donations').select('username, amount');
+      const { data: dons } = await _supabase.from('donations').select('username, amount, campaign_id, is_anonymous');
       if(dons){
         // Recalculate each campaign's raised amount from verified donation rows.
         // This keeps the UI accurate even if campaigns.current_amount is stale.
@@ -2893,6 +2923,9 @@
     const _dwLoadData=loadData;loadData=async function(){await _dwLoadData();campaigns=campaigns.filter(c=>!c.needs_review);injectUrgentFilter();if(currentUser){await hydrateFollows();await buildNotifications()}renderCamps()};
     function afterDonationV3(id,amt){const c=campaigns.find(x=>String(x.id)===String(id));maybeCelebrateMilestones(+c?.current_amount||0,id,amt);setTimeout(()=>openSupportPrompt(id,amt),900);setTimeout(buildNotifications,1200)}
 
+    document.addEventListener('keydown', (event) => {
+      if(event.key === 'Escape') closeDrawer();
+    });
     setInterval(()=>{if(campaigns.some(c=>c.deadline))renderCamps()},60000);
 
     window.onload = () => {
