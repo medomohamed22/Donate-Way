@@ -3053,37 +3053,31 @@
     function closeTransparency(){document.getElementById('transparency-modal').classList.remove('open')}
     async function printDonationCertificate(campaignId){
       if(!currentUser) return showMsg(t('msg_login_first'));
-      if(!window.DonateWayCertificate) return showMsg('PDF certificate module is unavailable. Please refresh the page.');
-      let dons=[];
-      try{
-        const {data,error}=await _supabase.from('donations')
-          .select('id,payment_id,txid,username,amount,campaign_id,is_anonymous,created_at')
-          .eq('username',currentUser.username)
-          .eq('campaign_id',campaignId)
-          .order('id',{ascending:true});
-        if(error) throw new Error(error.message||'Could not load donation records');
-        dons=data||[];
-      }catch(e){
-        console.error('Certificate data error:',e);
-        return showMsg('Could not load the verified donation record for this certificate.');
+      if(!piAccessToken){
+        try{const auth=await piAuthWithTimeout(['username']);await syncVerifiedPiUser(auth)}catch(e){}
       }
-      if(!dons.length) return showMsg('No verified donation was found for this campaign.');
-      const c=campaigns.find(x=>String(x.id)===String(campaignId));
-      const total=dons.reduce((sum,d)=>sum+(Number(d.amount)||0),0);
-      const latest=dons[dons.length-1]||{};
-      const date=new Date(latest.created_at||Date.now()).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-      const ref=String(latest.payment_id||latest.txid||latest.id||'record').replace(/[^a-zA-Z0-9]/g,'').toUpperCase();
-      const certificateId=`DW-${String(campaignId).padStart(4,'0')}-${String(latest.id||'0').padStart(6,'0')}-${ref.slice(-8)||'VERIFIED'}`;
-      window.DonateWayCertificate.downloadDonationCertificate({
-        donor: currentUser.username,
-        campaign: c?.title||`Campaign #${campaignId}`,
-        amount: total,
-        date,
-        certificateId,
-        transactionId: latest.txid||latest.payment_id||'Recorded by Donate Way',
-        isAnonymous: dons.every(d=>d.is_anonymous===true)
-      });
-      showMsg('Your PDF donation certificate has been generated.');
+      if(!piAccessToken) return showMsg(currentLang==='ar'?'سجل الدخول بحساب Pi أولاً لإنشاء الشهادة.':'Please sign in with Pi before generating your certificate.');
+      showMsg(currentLang==='ar'?'جاري تجهيز ملف PDF الآمن...':'Preparing your secure PDF certificate...');
+      try{
+        const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({op:'certificate_link',campaignId:Number(campaignId),accessToken:piAccessToken})});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok||!j.url) throw new Error(j.error||'Could not create the certificate download link');
+        const url=new URL(j.url,window.location.origin).href;
+        let opened=false;
+        // Pi Browser can block Blob/anchor downloads. Opening a normal HTTPS attachment URL in
+        // the device browser is the Pi SDK-supported path and lets Android/iOS handle the PDF file.
+        if(window.Pi&&typeof window.Pi.openUrlInSystemBrowser==='function'){
+          try{await window.Pi.openUrlInSystemBrowser(url);opened=true}catch(e){console.warn('Pi system-browser open failed:',e)}
+        }
+        if(!opened){
+          const w=window.open(url,'_blank','noopener,noreferrer');
+          if(!w) window.location.href=url;
+        }
+        showMsg(currentLang==='ar'?'تم فتح تحميل شهادة PDF. إذا لم يبدأ التنزيل، استخدم زر التنزيل في المتصفح.':'Your PDF certificate download has been opened. If it does not download automatically, use the browser download button.');
+      }catch(e){
+        console.error('Certificate download error:',e);
+        showMsg(currentLang==='ar'?'تعذر تحميل الشهادة. حاول مرة أخرى بعد التأكد من تسجيل الدخول.':'Could not download the certificate. Please sign in and try again.');
+      }
     }
 
     function earnedBadges(userDons){const unique=new Set(userDons.map(d=>String(d.campaign_id))).size,total=userDons.reduce((a,d)=>a+(+d.amount||0),0),completedSupported=new Set(userDons.filter(d=>{const c=campaigns.find(x=>String(x.id)===String(d.campaign_id));return c&&['funded','completed'].includes(campaignStatus(c))}).map(d=>d.campaign_id)).size;const months=new Set(userDons.map(d=>new Date(d.created_at||Date.now()).toISOString().slice(0,7))).size;return [{icon:'🌱',en:'First Donation',ar:'أول تبرع',ok:userDons.length>=1},{icon:'🤝',en:'Supported 5 Campaigns',ar:'دعم 5 حملات',ok:unique>=5},{icon:'📅',en:'Monthly Supporter',ar:'داعم مستمر',ok:months>=2},{icon:'🏁',en:'Helped Complete a Campaign',ar:'ساهم في إكمال حملة',ok:completedSupported>=1},{icon:'💜',en:'Impact Supporter',ar:'داعم للأثر',ok:total>=50}]}
