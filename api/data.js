@@ -1,5 +1,6 @@
 const ALLOWED_TABLES = new Set(['campaigns','campaign_updates','donations','campaign_follows','campaign_comments']);
 const SAFE_DONATION_FIELDS = new Set(['id','pi_user_id','username','amount','campaign_id','is_anonymous','created_at']);
+const SAFE_OWN_DONATION_FIELDS = new Set([...SAFE_DONATION_FIELDS,'payment_id','txid']);
 
 function env(){
   const url=(process.env.SUPABASE_URL||'').replace(/\/$/,'');
@@ -70,7 +71,7 @@ async function restWrite(table,q,method,forcedFilters=[]){
   return data;
 }
 async function latestDonation(user,campaignId){
-  const q={columns:'amount',filters:[{type:'eq',column:'campaign_id',value:campaignId}],orders:[{column:'id',ascending:false}],limit:1,single:true};
+  const q={columns:'amount,is_anonymous',filters:[{type:'eq',column:'campaign_id',value:campaignId}],orders:[{column:'id',ascending:false}],limit:1,single:true};
   return restSelect('donations',q,[{type:'eq',column:'pi_user_id',value:user.uid}]);
 }
 
@@ -114,7 +115,8 @@ module.exports = async function handler(req,res){
         forced=[{type:'eq',column:'pi_user_id',value:user.uid}];
       }
       let data=await restSelect(table,q,forced);
-      const sanitize=d=>Object.fromEntries(Object.entries(d||{}).filter(([k])=>SAFE_DONATION_FIELDS.has(k)));
+      const allowed=asksIdentity?SAFE_OWN_DONATION_FIELDS:SAFE_DONATION_FIELDS;
+      const sanitize=d=>Object.fromEntries(Object.entries(d||{}).filter(([k])=>allowed.has(k)));
       data=Array.isArray(data)?data.map(sanitize):sanitize(data);
       return res.status(200).json({data});
     }
@@ -150,7 +152,7 @@ module.exports = async function handler(req,res){
         if(!Number.isInteger(campaignId)||campaignId<=0||!message) return res.status(400).json({error:'Invalid comment'});
         const donation=await latestDonation(user,campaignId);
         if(!donation) return res.status(403).json({error:'A verified donation is required before posting a support message'});
-        const values=[{campaign_id:campaignId,pi_user_id:user.uid,username:user.username,amount:Number(donation.amount)||0,message,is_anonymous:Boolean(input.is_anonymous),status:'pending'}];
+        const values=[{campaign_id:campaignId,pi_user_id:user.uid,username:user.username,amount:Number(donation.amount)||0,message,is_anonymous:Boolean(donation.is_anonymous)||Boolean(input.is_anonymous),status:'pending'}];
         const data=await restWrite(table,{...q,values},'POST'); return res.status(200).json({data});
       }
       return res.status(403).json({error:'Operation not allowed'});

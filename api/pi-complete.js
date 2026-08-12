@@ -9,6 +9,7 @@ function fields(raw){
   const p=raw?.payment||raw||{},tx=p.transaction||raw?.transaction||{};
   return {amount:Number(p.amount),metadata:p.metadata||{},userUid:p.user_uid||p.user?.uid||null,txid:tx.txid||null,txVerified:tx.verified===true,direction:p.direction||null,status:p.status||{}};
 }
+function metadataBoolean(value){return value===true||value===1||value==='1'||String(value).toLowerCase()==='true';}
 function validatePayment(p,user,txid,{requireCompleted=false}={}){
   if(p.userUid&&String(p.userUid)!==String(user.uid))return 'Payment does not belong to authenticated Pi user';
   if(p.direction&&p.direction!=='user_to_app')return 'Invalid payment direction';
@@ -59,7 +60,8 @@ module.exports=async function handler(req,res){
     if(!Number.isFinite(amount)||amount<=0||!Number.isInteger(campaignId)||campaignId<=0)return res.status(400).json({error:'Completed payment data is invalid'});
     const max=Number(process.env.MAX_DONATION_PI||0);
     if(max>0&&amount>max)return res.status(400).json({error:'Donation amount exceeds server limit'});
-    await recordDonation({paymentId,txid,user,amount,campaignId,isAnonymous});
+    const canonicalAnonymous = Object.prototype.hasOwnProperty.call(p.metadata||{},'isAnonymous') ? metadataBoolean(p.metadata.isAnonymous) : Boolean(isAnonymous);
+    await recordDonation({paymentId,txid,user,amount,campaignId,isAnonymous:canonicalAnonymous});
     return res.status(200).json({completed:true,recorded:true,paymentId,txid,amount,campaignId});
   }catch(e){return res.status(500).json({error:e.message||'Completion failed'})}
 };
