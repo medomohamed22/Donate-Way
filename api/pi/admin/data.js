@@ -1,4 +1,4 @@
-const {getAdmin,headers,buildQuery}=require('./_shared.cjs');
+const {getAdmin,headers,buildQuery}=require('../../lib/backend.cjs');
 const TABLES=new Set(['campaigns','donations','campaign_updates','campaign_comments','admin_activity_logs','pi_users']);
 async function selectAll(table,q){
   const explicitLimit=q.limit!==null&&q.limit!==undefined&&q.limit!==''&&Number.isFinite(Number(q.limit));
