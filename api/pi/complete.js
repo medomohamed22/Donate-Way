@@ -1,76 +1,29 @@
-function sendJson(res, statusCode, payload) {
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(payload));
+async function verifyPiUser(accessToken){
+  if(!accessToken)return null;
+  const r=await fetch('https://api.minepi.com/v2/me',{headers:{Authorization:`Bearer ${accessToken}`}}); if(!r.ok)throw new Error('Pi user authentication failed');
+  const j=await r.json(); const u=j?.user||j; if(!u?.uid)throw new Error('Pi user identity is invalid'); return{uid:String(u.uid),username:String(u.username||'pi-user')};
 }
-
-function getBody(req) {
-  if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
-  if (typeof req.body === 'string') {
-    try {
-      return Promise.resolve(JSON.parse(req.body || '{}'));
-    } catch (error) {
-      return Promise.reject(new Error('Invalid JSON body'));
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    let rawBody = '';
-    req.on('data', chunk => {
-      rawBody += chunk;
-    });
-    req.on('end', () => {
-      try {
-        resolve(rawBody ? JSON.parse(rawBody) : {});
-      } catch (error) {
-        reject(new Error('Invalid JSON body'));
-      }
-    });
-    req.on('error', reject);
-  });
+async function getPayment(paymentId,key){const r=await fetch(`https://api.minepi.com/v2/payments/${encodeURIComponent(paymentId)}`,{headers:{Authorization:`Key ${key}`}});if(!r.ok)throw new Error(`Pi payment lookup failed (${r.status})`);return r.json()}
+function fields(raw){const p=raw?.payment||raw||{};const tx=p.transaction||raw?.transaction||{};return{amount:Number(p.amount),metadata:p.metadata||{},userUid:p.user_uid||p.user?.uid||null,txid:tx.txid||null,status:p.status||{}}}
+async function recordDonation({paymentId,txid,user,amount,campaignId,isAnonymous}){
+  const base=(process.env.SUPABASE_URL||'').replace(/\/$/,'');const key=process.env.SUPABASE_SERVICE_ROLE_KEY||'';if(!base||!key)throw new Error('Supabase backend environment is not configured');
+  const r=await fetch(`${base}/rest/v1/rpc/record_pi_donation`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({p_payment_id:paymentId,p_txid:txid,p_pi_user_id:user.uid,p_username:user.username,p_amount:amount,p_campaign_id:campaignId,p_is_anonymous:Boolean(isAnonymous)})});
+  if(!r.ok){const detail=await r.text();throw new Error(`Verified payment could not be recorded: ${detail.slice(0,300)}`)}
 }
-
-module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return sendJson(res, 405, { error: 'Method Not Allowed' });
-  }
-
-  try {
-    const { paymentId, txid } = await getBody(req);
-
-    if (!paymentId || !txid) {
-      return sendJson(res, 400, { error: 'Missing paymentId or txid' });
-    }
-
-    const PI_SECRET_KEY = process.env.PI_SECRET_KEY;
-    if (!PI_SECRET_KEY) {
-      return sendJson(res, 500, { error: 'PI_SECRET_KEY environment variable is not configured' });
-    }
-
-    const PI_API_BASE = 'https://api.minepi.com/v2';
-    const response = await fetch(`${PI_API_BASE}/payments/${paymentId}/complete`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${PI_SECRET_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ txid })
-    });
-
-    let data = null;
-    try {
-      data = await response.json();
-    } catch (error) {
-      data = null;
-    }
-
-    if (!response.ok) {
-      return sendJson(res, response.status, { error: data || 'Pi complete request failed' });
-    }
-
-    return sendJson(res, 200, { completed: true, data });
-  } catch (error) {
-    return sendJson(res, 500, { error: error.message || 'Server error' });
-  }
+module.exports=async function handler(req,res){
+  if(req.method!=='POST')return res.status(405).json({error:'Method Not Allowed'});
+  const {paymentId,txid,accessToken,isAnonymous=false}=req.body||{}; if(!paymentId||!txid)return res.status(400).json({error:'Missing paymentId or txid'});
+  const key=process.env.PI_SECRET_KEY;if(!key)return res.status(500).json({error:'PI_SECRET_KEY is not configured'});
+  try{
+    const verifiedUser=await verifyPiUser(accessToken);
+    const complete=await fetch(`https://api.minepi.com/v2/payments/${encodeURIComponent(paymentId)}/complete`,{method:'POST',headers:{Authorization:`Key ${key}`,'Content-Type':'application/json'},body:JSON.stringify({txid})});
+    const completeBody=await complete.json().catch(()=>({})); if(!complete.ok)return res.status(complete.status).json({error:completeBody?.error||'Pi completion failed'});
+    const p=fields(await getPayment(paymentId,key)); const campaignId=Number(p.metadata?.campaignId); const amount=p.amount;
+    if(!Number.isFinite(amount)||amount<=0||!Number.isInteger(campaignId)||campaignId<=0)return res.status(400).json({error:'Completed payment data is invalid'});
+    if(p.txid&&String(p.txid)!==String(txid))return res.status(409).json({error:'Transaction id mismatch'});
+    if(verifiedUser&&p.userUid&&String(verifiedUser.uid)!==String(p.userUid))return res.status(403).json({error:'Payment does not belong to authenticated Pi user'});
+    const user=verifiedUser||{uid:String(p.userUid||''),username:'pi-user'}; if(!user.uid)return res.status(400).json({error:'Verified Pi user id is missing from payment'});
+    await recordDonation({paymentId,txid,user,amount,campaignId,isAnonymous});
+    return res.status(200).json({completed:true,recorded:true,paymentId,txid,amount,campaignId});
+  }catch(e){return res.status(500).json({error:e.message||'Completion failed'})}
 };
