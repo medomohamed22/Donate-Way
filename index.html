@@ -2216,7 +2216,7 @@
       const timer = setTimeout(() => controller.abort(), 12000);
       let syncRes;
       try{
-        syncRes = await fetch('/api/pi/user', {
+        syncRes = await fetch('/api/pi-user', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({accessToken:auth.accessToken}),
@@ -2253,7 +2253,7 @@
           console.warn('Incomplete Pi payment has no blockchain transaction yet; nothing to complete.');
           return;
         }
-        const r = await fetch('/api/pi/complete', {
+        const r = await fetch('/api/pi-complete', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ paymentId: payment.identifier, txid, accessToken: piAccessToken || null })
@@ -2872,13 +2872,13 @@
         memo: `${t('memo_prefix')}${campTitle}`,
         metadata: { campaignId: id }
       }, {
-        onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
+        onReadyForServerApproval: (payId) => fetch('/api/pi-approve', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
         }),
 
-        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
+        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi-complete', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ paymentId: payId, txid: tx, accessToken: piAccessToken, isAnonymous: !!document.getElementById(`detail-anon-${id}`)?.checked })
@@ -2935,13 +2935,13 @@
         memo: `${t('memo_prefix')}${campTitle}`,
         metadata: { campaignId: id }
       }, {
-        onReadyForServerApproval: (payId) => fetch('/api/pi/approve', {
+        onReadyForServerApproval: (payId) => fetch('/api/pi-approve', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ paymentId: payId, accessToken: piAccessToken })
         }),
 
-        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi/complete', {
+        onReadyForServerCompletion: (payId, tx) => fetch('/api/pi-complete', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ paymentId: payId, txid: tx, accessToken: piAccessToken, isAnonymous: !!document.getElementById(`anon-${id}`)?.checked })
